@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
+import { auth } from '../middleware/auth.js';
+import { z } from 'zod';
+const r=Router();r.use(auth(true));
+const owns=async(id,userId)=>prisma.conversation.findFirst({where:{id,OR:[{buyerId:userId},{sellerId:userId}]}});
+r.get('/conversations',async(req,res)=>res.json(await prisma.conversation.findMany({where:{OR:[{buyerId:req.user.id},{sellerId:req.user.id}]},include:{messages:{orderBy:{createdAt:'desc'},take:1},product:{select:{id:true,titleAr:true}},},orderBy:{createdAt:'desc'}})));
+r.post('/conversations',async(req,res)=>{const x=z.object({sellerId:z.string(),productId:z.string().optional()}).parse(req.body);if(x.sellerId===req.user.id)return res.status(400).json({error:'Invalid participant'});res.json(await prisma.conversation.create({data:{buyerId:req.user.id,sellerId:x.sellerId,productId:x.productId}}))});
+r.get('/conversations/:id/messages',async(req,res)=>{if(!await owns(req.params.id,req.user.id))return res.status(403).json({error:'Forbidden'});res.json(await prisma.message.findMany({where:{conversationId:req.params.id},include:{sender:{select:{name:true}}},orderBy:{createdAt:'asc'}}))});
+r.post('/conversations/:id/messages',async(req,res)=>{if(!await owns(req.params.id,req.user.id))return res.status(403).json({error:'Forbidden'});const x=z.object({body:z.string().min(1).max(10000),type:z.string().default('TEXT'),metadata:z.any().optional()}).parse(req.body);res.status(201).json(await prisma.message.create({data:{...x,conversationId:req.params.id,senderId:req.user.id}}))});
+export default r;

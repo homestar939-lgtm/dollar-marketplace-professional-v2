@@ -1,0 +1,2 @@
+export type Category={id:string;nameAr:string;nameEn:string;slug:string;attributes?:any[]};
+export type Product={id:string;titleAr:string;titleEn:string;descriptionAr:string;descriptionEn:string;price:number;currency:string;stock:number;minOrderQty:number;location?:string;views:number;featured:boolean;sponsored:boolean;images:{url:string}[];category:Category;store?:{id:string;name:string;rating:number;verified:boolean};attributes:{value:string;attribute:{key:string;nameAr:string;nameEn:string;unit?:string}}[];seller:{id:string;name:string;verified:boolean}};

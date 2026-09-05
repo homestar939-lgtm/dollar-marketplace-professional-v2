@@ -1,0 +1,15 @@
+import { Router } from 'express';import { prisma } from '../lib/prisma.js';import { auth,roles } from '../middleware/auth.js';import { z } from 'zod';
+const r=Router();r.use(auth(true),roles('ADMIN'));
+r.get('/dashboard',async(req,res)=>{const [users,products,orders,sellerOrders,stores,rfqs,disputes,payments,reviews,ads]=await Promise.all([prisma.user.count(),prisma.product.count(),prisma.order.count(),prisma.sellerOrder.count(),prisma.store.count(),prisma.rfq.count(),prisma.dispute.count(),prisma.payment.count(),prisma.review.count(),prisma.ad.count()]);res.json({users,products,orders,sellerOrders,stores,rfqs,disputes,payments,reviews,ads})});
+r.get('/users',async(req,res)=>res.json(await prisma.user.findMany({select:{id:true,email:true,name:true,role:true,verified:true,createdAt:true,store:{select:{id:true,name:true,verified:true}}},orderBy:{createdAt:'desc'},take:200})));
+r.get('/orders',async(req,res)=>res.json(await prisma.order.findMany({include:{buyer:{select:{name:true,email:true}},sellerOrders:{include:{store:true,shipment:true}}},orderBy:{createdAt:'desc'},take:200})));
+r.get('/stores',async(req,res)=>res.json(await prisma.store.findMany({include:{owner:{select:{name:true,email:true}},_count:{select:{products:true}}},orderBy:{createdAt:'desc'}})));
+r.post('/categories',async(req,res)=>{const x=z.object({nameAr:z.string(),nameEn:z.string(),slug:z.string(),parentId:z.string().optional()}).parse(req.body);res.status(201).json(await prisma.category.create({data:x}))});
+r.patch('/categories/:id',async(req,res)=>{const x=z.object({nameAr:z.string().optional(),nameEn:z.string().optional(),slug:z.string().optional(),parentId:z.string().nullable().optional()}).parse(req.body);res.json(await prisma.category.update({where:{id:req.params.id},data:x}))});
+r.post('/attributes',async(req,res)=>{const x=z.object({key:z.string(),nameAr:z.string(),nameEn:z.string(),type:z.string(),unit:z.string().optional(),options:z.any().optional()}).parse(req.body);res.status(201).json(await prisma.attribute.create({data:x}))});
+r.post('/category-attributes',async(req,res)=>{const x=z.object({categoryId:z.string(),attributeId:z.string(),required:z.boolean().default(false),filterable:z.boolean().default(true),sortOrder:z.number().int().default(0)}).parse(req.body);res.status(201).json(await prisma.categoryAttribute.create({data:x}))});
+r.patch('/products/:id/status',async(req,res)=>{const {status}=z.object({status:z.enum(['DRAFT','ACTIVE','INACTIVE','PENDING_REVIEW'])}).parse(req.body);res.json(await prisma.product.update({where:{id:req.params.id},data:{status}}))});
+r.get('/disputes',async(req,res)=>res.json(await prisma.dispute.findMany({include:{order:true,buyer:true},orderBy:{createdAt:'desc'}})));
+r.patch('/disputes/:id',async(req,res)=>{const {status,resolution}=z.object({status:z.enum(['OPEN','UNDER_REVIEW','RESOLVED','REJECTED']),resolution:z.string().optional()}).parse(req.body);res.json(await prisma.dispute.update({where:{id:req.params.id},data:{status,resolution}}))});
+r.get('/audit-logs',async(req,res)=>res.json(await prisma.auditLog.findMany({orderBy:{createdAt:'desc'},take:300}))); 
+export default r;
