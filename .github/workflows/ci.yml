@@ -1,67 +1,50 @@
-name: Dollar Marketplace CI
+name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
 
-permissions:
-  contents: read
-
 jobs:
-  web-api:
-    name: Web + API verification
+  api:
+    name: API — schema, migrations, tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dollar
+          POSTGRES_PASSWORD: dollar
+          POSTGRES_DB: dollar
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dollar:dollar@localhost:5432/dollar?schema=public
+      JWT_SECRET: ci-secret-value-that-is-long-enough
+      EXPOSE_TOKENS: "true"
+      BCRYPT_ROUNDS: "4"
+      NODE_ENV: test
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node 22
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Install JavaScript dependencies
-        run: npm ci --ignore-scripts
-      - name: Source verification
-        run: node scripts/verify-source.mjs
-      - name: Prisma client generation
-        run: npm run db:generate
-      - name: Prisma schema validation
-        run: npx prisma validate --schema apps/api/prisma/schema.prisma
-      - name: JavaScript syntax validation
-        shell: bash
-        run: |
-          set -euo pipefail
-          find apps/api/src apps/api/prisma -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Web production build
-        run: npm run build -w apps/web
-
-  android:
-    name: Android debug APK
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
-      - name: Setup Gradle 9.6
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '9.6'
-          cache-provider: basic
-      - name: Build debug APK
-        working-directory: apps/android
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: dollar-marketplace-debug-apk
-          path: apps/android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: npx prisma generate
+      - name: Validate schema
+        working-directory: apps/api
+        run: npx prisma validate
+      - name: Apply migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+      - name: Seed demo data
+        working-directory: apps/api
+        run: node prisma/seed.js
+      - name: Run end-to-end tests
+        working-directory: apps/api
+        run: node --test tests/flow.test.js

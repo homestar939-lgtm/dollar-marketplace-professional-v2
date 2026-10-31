@@ -1,19 +1,40 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dollar
+      POSTGRES_PASSWORD: dollar
+      POSTGRES_DB: dollar
+    ports:
+      - "5432:5432"
+    volumes:
+      - dollar-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dollar -d dollar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   dollar-api:
     build: ./apps/api
     environment:
-      DATABASE_URL: file:/data/dev.db
-      JWT_SECRET: change-me
+      DATABASE_URL: postgresql://dollar:dollar@postgres:5432/dollar?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string-at-least-16-chars}
       PORT: 4000
+      NODE_ENV: production
     ports:
       - "4000:4000"
-    volumes:
-      - dollar-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && node src/server.js"
+
   dollar-web:
     build: ./apps/web
     ports:
       - "5173:80"
     depends_on:
       - dollar-api
+
 volumes:
-  dollar-data:
+  dollar-pgdata:
