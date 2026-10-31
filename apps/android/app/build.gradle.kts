@@ -25,8 +25,10 @@ android {
         buildConfig = true
     }
     val apiBaseUrl = providers.gradleProperty("API_BASE_URL").orElse("http://10.0.2.2:4000/api")
+    val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orElse("")
     buildTypes.configureEach {
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleWebClientId.get()}\"")
     }
 }
 
@@ -42,6 +44,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
+    implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("io.coil-kt.coil3:coil-compose:3.6.2")
     implementation("io.coil-kt.coil3:coil-network-ktor3:3.6.2")
     implementation("io.ktor:ktor-client-android:3.5.2")

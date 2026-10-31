@@ -1,5 +1,7 @@
 package com.dollar.marketplace
 
+import com.dollar.marketplace.b2b.B2bRoot
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -77,7 +79,7 @@ enum class Tab(val label: String, val icon: ImageVector) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { DollarRoot() }
+        setContent { B2bRoot() }
     }
 }
 
