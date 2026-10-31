@@ -1,5 +1,6 @@
 package com.dollar.marketplace.b2b
 
+import android.app.PendingIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -81,8 +82,10 @@ fun B2bLogin(state: B2bState) {
             .build()
         val client = GoogleSignIn.getClient(context, options)
         client.signInIntentSender
-            .addOnSuccessListener { pending ->
-                googleLauncher.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+            .addOnSuccessListener { pendingIntent: PendingIntent ->
+                googleLauncher.launch(
+                    IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                )
             }
             .addOnFailureListener {
                 state.reportError("تعذّر بدء الدخول عبر Google")
