@@ -136,7 +136,7 @@ fun B2bCollectorScreen(state: B2bState) {
                         state.api.sendReceipt(created.receipt.id)
                     }
                         .onSuccess {
-                            message = "أُرسل السند ${it.receiptNumber} للمحاسب"
+                            message = "أُرسل السند ${it.receipt.receiptNumber} للمحاسب"
                             amount = ""
                             refresh += 1
                         }
