@@ -1,111 +1,156 @@
-# تقرير التسليم — دولار ماركت بليس (المرحلة 1: الخلفية المالية B2B)
+# تقرير التسليم — دولار ماركت بليس (B2B)
 
-**الالتزام (Commit):** [`4edf0c3`](https://github.com/homestar939-lgtm/dollar-marketplace-professional-v2/commit/4edf0c3c14095455e2278444ac927209c2476a9f) · **الفرع:** `main`
-**النطاق المنفَّذ:** مخطط قاعدة البيانات + أمن المصادقة والصلاحيات + دورة الفاتورة/سند القبض/الدفتر المالي + الاختبارات.
-**غير المنفَّذ في هذه المرحلة (معلن صراحةً):** واجهات Android وWeb لواجهات B2B الجديدة — انظر القسم 7.
+**المستودع:** `homestar939-lgtm/dollar-marketplace-professional-v2` · **الفرع:** `main`
+**آخر التزامات هذه المرحلة:** `4edf0c3` (الخلفية) · `289d30c` (الويب) · `9acd964` (أندرويد + مصنع البناء) · `81db6f0` (آخر إصلاح نجح عليه البناء)
+
+> منهج هذا التقرير: كل رقم أدناه ناتج عن **تشغيل فعلي** (اختبارات، هجرات، بناء، فحص حزمة APK).
+> وما لم يُشغَّل مذكور صراحةً في القسم 9 دون تجميل.
 
 ---
 
-## 1. الملفات المعدَّلة (9)
+## 1. الخلاصة في جدول
+
+| المحور | الحالة | الدليل |
+|---|---|---|
+| مخطط Prisma | ✅ صالح | `prisma validate` → *The schema ... is valid 🚀* |
+| هجرات قاعدة البيانات | ✅ 3 هجرات مطبَّقة | `prisma migrate deploy` على PostgreSQL |
+| اختبارات الخلفية | ✅ **22/22** | `node --test tests/flow.test.js` — 21 سيناريو |
+| بناء الخلفية وتشغيلها | ✅ | `/health` 200 · `login` 200 · تقارير 200 · مسار محمي بلا توكن 401 |
+| CI الخلفية على GitHub | ✅ **8/8 نجاح** | كل push، مع خدمة Postgres حقيقية |
+| بناء الويب | ✅ | `tsc --noEmit` نظيف + `vite build` (222 kB) |
+| تطابق الويب مع الـ API | ✅ **20/20** نقطة نهاية موجودة | فحص بنداءات حقيقية، 0 مفقودة |
+| تطبيق أندرويد | ✅ **بُني APK على GitHub Actions** | `BUILD SUCCESSFUL` · أرتيفاكت 21.6 MB |
+| فحص حزمة APK | ✅ | 7 dex · توقيع v2/v3 · كل أصناف B2B داخل الحزمة |
+| تشغيل APK على جهاز | ❌ **لم يُنفَّذ** | لا قناة تثبيت متاحة — انظر القسم 9 |
+
+---
+
+## 2. الملفات المعدَّلة
 
 | الملف | التغيير |
 |---|---|
-| `apps/api/prisma/schema.prisma` | **إعادة كتابة كاملة**. المخطط القديم لم يكن يمرّ من `prisma validate` إطلاقًا (كل النماذج في 73 سطرًا مضغوطة، والمحلّل يرفضها). الآن: PostgreSQL، `Decimal(18,4)`، Enums، وكيانات B2B الجديدة مع **الحفاظ على كل نماذج المستهلك القديمة** (Store, Cart, Offer, Rfq, Dispute…) وتحويل أموالها إلى Decimal |
-| `apps/api/package.json` | سكربتات `prisma:validate` و`prisma:migrate` (deploy) و`test`، والإصدار 2.0.0. **لم تتغيّر أي تبعية** |
-| `apps/api/.env.example` | عقد البيئة الجديد (DATABASE_URL لـ Postgres، JWT، TTLS، Google Client ID، EXPOSE_TOKENS) |
-| `apps/api/prisma/seed.js` | بيانات تجريبية على المخطط الجديد: مدير، مخزن، محصل بنسبة 2.5%، محاسب، مشتري، وكالة، 3 منتجات، إعدادات مؤسسة |
-| `docker-compose.yml` | إضافة خدمة `postgres:16-alpine` بصحة (healthcheck)، وربط الـ API بها مع `migrate deploy` قبل الإقلاع |
-| `.github/workflows/ci.yml` | CI حقيقي: Postgres خدمي → `npm ci` → `validate` → `migrate deploy` → `seed` → الاختبارات |
-| `docs/API.md` | مرجع كامل للمسارات والصلاحيات والرموز (كان 1.4KB وصفيًا) |
-| `README.md` | قسم B2B (v2): التشغيل، الحسابات المزروعة، الاختبارات، الثوابت المالية |
-| `package.json` (الجذر) | ربط `db:generate/db:migrate/db:seed` بحزمة `apps/api` |
+| `apps/api/prisma/schema.prisma` | إعادة كتابة كاملة: PostgreSQL، `Decimal(18,4)`، Enums، كيانات B2B + الحفاظ على نماذج المستهلك القديمة |
+| `apps/api/package.json` | سكربتات validate/migrate/test، الإصدار 2.0.0 (لا تغيير في التبعيات) |
+| `apps/api/.env.example` | عقد البيئة الجديد |
+| `apps/api/prisma/seed.js` | بيانات تجريبية على المخطط الجديد (مدير/مخزن/محصل/محاسب/مشترٍ + وكالة + 3 منتجات) |
+| `docker-compose.yml` | خدمة `postgres:16` بصحة + `migrate deploy` قبل الإقلاع |
+| `.github/workflows/ci.yml` | CI خلفية: Postgres خدمي → validate → migrate → seed → test |
+| `apps/web/package.json` | `build` = `tsc --noEmit && vite build` |
+| `apps/web/src/{main,App,api,types,styles}.ts(x)`, `vite-env.d.ts` | استبدال واجهة السوق القديمة بواجهة B2B كاملة |
+| `apps/android/app/src/main/java/com/dollar/marketplace/MainActivity.kt` | نقطة الإقلاع تحوّلت إلى `B2bRoot()` |
+| `apps/android/app/build.gradle.kts` | `GOOGLE_WEB_CLIENT_ID` + `play-services-auth:21.4.0` |
+| `apps/android/build.gradle.kts` | إزالة `kotlin.android` (AGP 9 يدمج Kotlin) + إضافة `plugin.serialization` |
+| `apps/android/gradle/wrapper/gradle-wrapper.properties` | **إصلاح خلل**: `gradle-9.6-bin.zip` غير موجود → `gradle-9.6.0-bin.zip` |
+| `docs/API.md`, `README.md`, `package.json` (الجذر) | توثيق B2B وربط سكربتات قاعدة البيانات |
 
-## 2. الملفات المنشأة (84 ملفًا · 273 KB)
+## 3. الملفات المنشأة
 
 | المجموعة | العدد | المحتوى |
 |---|---|---|
-| `apps/api/src/modules/**` | 44 | 11 وحدة، كل واحدة `routes / controller / service / validation`: auth · users · agencies · products · orders · invoices · receipts · accounting · reports · settings · notifications |
-| `apps/api/src/services/**` | 5 | `financial-ledger` · `invoice-service` · `receipt-service` · `commission-service` · `numbering` |
-| `apps/api/src/lib/**` | 7 | `money` (Decimal حصريًا) · `jwt` · `tokens` · `errors` · `tx` (SERIALIZABLE + إعادة محاولة) · `prisma` · `async-handler` |
-| `apps/api/src/middleware/**` | 5 | `authentication` · `authorization` (مصفوفة صلاحيات) · `validation` (zod) · `error-handler` · `request-context` |
-| `apps/api/src/utils/**` + `config/` | 4 | `audit` · `pagination` · `currency` · `config/env` |
-| `apps/api/prisma/migrations/**` | 4 | 3 هجرات + `migration_lock.toml` |
-| `apps/api/tests/flow.test.js` | 1 | 21 سيناريو شامل |
-| `apps/api/src/app.js`, `server.js` | 2 | تجميع التطبيق، إقلاع، إغلاق آمن |
-| `apps/api/src/legacy/**` | 9 | المسارات القديمة **منقولة لا محذوفة** + README يشرح سبب عدم صلاحيتها |
-| ملفات الجذر | 3 | `docs/API.md` · `.github/workflows/ci.yml` · تحديثات أعلاه |
+| `apps/api/src/modules/**` | 44 | 11 وحدة (auth · users · agencies · products · orders · invoices · receipts · accounting · reports · settings · notifications) |
+| `apps/api/src/services/**` | 5 | ledger · invoice · receipt · commission · numbering |
+| `apps/api/src/{lib,middleware,utils,config}/**` | 16 | money · jwt · tokens · tx · prisma · rbac · validation · error-handler · audit … |
+| `apps/api/prisma/migrations/**` | 4 | 3 هجرات + lock |
+| `apps/api/tests/flow.test.js` | 1 | 21 سيناريو مالي شامل |
+| `apps/api/src/legacy/**` | 9 | المسارات القديمة منقولة (لا محذوفة) + README يشرح عدم صلاحيتها |
+| `apps/web/src/{components,screens}/**` | 7 | ui + 6 شاشات أدوار |
+| `apps/android/.../b2b/**` | 12 | نماذج · عميل API · حالة · مكوّنات · شاشات ترحيب · دخول · 5 لوحات |
+| `.github/workflows/android-build.yml` | 1 | مصنع بناء APK على GitHub |
 
-**المحذوف (8 ملفات):** المسارات القديمة من مواقعها (`src/routes/*.js`، `src/lib/auth.js`، `src/middleware/auth.js`) — نُقلت إلى `src/legacy/` بنفس المحتوى. المبرر المثبت: المخطط القديم لم يكن يمرّ من `validate`، فلم تكن هذه الملفات قابلة للتشغيل أصلًا، وهي تشير إلى حقول أزالها المخطط الجديد (`Product.titleAr`…).
+---
 
-## 3. إصدار Prisma
+## 4. قاعدة البيانات
 
-`prisma 6.19.3` و`@prisma/client 6.19.3` — **دون تغيير** (نفس ما كان في المشروع).
+- **Prisma 6.19.3** (دون تغيير) · المزوّد PostgreSQL.
+- 3 هجرات: المخطط الأولي (47 KB) + تسلسلات الفواتير/السندات + تسلسل الطلبات.
+- ما لا يستطيع Prisma التعبير عنه، وطُبِّق في SQL:
+  - فهرس فريد جزئي: **فاتورة حيّة واحدة لكل طلب**.
+  - قيود `CHECK`: لا ترحيل صفري/سالب · لا تجهيز يتجاوز المطلوب · لا عمولة سالبة.
+  - **مشغّلات ترفض `UPDATE`/`DELETE`** على `FinancialTransaction` و`AuditLog` — الدفتر غير قابل للتعديل على مستوى القاعدة، لا بالاتفاق.
+- المال `Decimal(18,4)` في كل مكان؛ لا `Float` في أي مسار مالي.
 
-## 4. نتيجة Prisma Validate
-
-```
-$ npx prisma validate
-Prisma schema loaded from prisma/schema.prisma
-The schema at prisma/schema.prisma is valid 🚀
-```
-ونُفِّذت الهجرات فعليًا:
-```
-$ npx prisma migrate deploy
-3 migrations found in prisma/migrations
-All migrations have been successfully applied.
-```
-
-## 5. نتيجة الاختبارات
+## 5. الاختبارات — 22/22
 
 ```
 $ node --test tests/flow.test.js
 ✔ Dollar B2B platform — end-to-end financial flow
-ℹ tests 22   ℹ pass 22   ℹ fail 0   ℹ duration_ms ~16000
+ℹ tests 22   ℹ pass 22   ℹ fail 0
 ```
-21 سيناريو، كلها عبر HTTP حقيقي وقاعدة بيانات حقيقية — **ونُفِّذت أيضًا من نسخة نظيفة تم تنزيلها من GitHub** (لا من مجلد العمل) فنجحت 22/22.
+وذلك من **نسخة نُزّلت من GitHub** لا من مجلد العمل. تغطية: تسجيل → تحقق بريد → Google (بمدقّق محقون) → أدوار → وكالة/منتج → بحث → طلب → تجهيز جزئي → فاتورة → اعتماد → شحن → سند → اعتماد → رصيد → عمولة → تقارير → تدقيق.
+اختبارات سلوكية موجّهة: رفض UPDATE على الدفتر · اعتمادان متزامنان → قيد واحد · منع الدفع الزائد · منع فرض السعر من العميل · عزل بيانات المشترين والمحصلين.
 
-التغطية: التسجيل/التحقق من البريد · الدخول المحجوب قبل التحقق · Google Sign-In (بمدقّق محقون) · نسيت/تغيير كلمة المرور · رفض RBAC · إنشاء وكالة/منتج · بحث المشتري بالاسم وSKU والوكالة · **منع العميل من فرض السعر** · تجهيز جزئي ثم كامل · منع الشحن قبل إرسال الفاتورة · إنشاء/تعديل/إرسال الفاتورة · الاعتماد مع منع التكرار · ثبات الفاتورة المعتمدة · سند قبض لا يمسّ الرصيد قبل الاعتماد · الرفض بلا أثر · منع الدفع الزائد · تصفية المتبقي · عزل بيانات المشترين والمحصلين · **الدفتر غير قابل للتعديل على مستوى القاعدة** · **اعتمادان متزامنان → قيد واحد فقط** · التقارير وسجل التدقيق والمطابقة.
-
-## 6. نتيجة بناء/تشغيل الـ Backend
+## 6. الخلفية — تشغيل حقيقي
 
 ```
-[health]  GET /health            -> 200 {"status":"ok","database":"up","version":"2.0.0"}
-[login]   POST /api/auth/login   -> 200 role=ADMIN status=ACTIVE
-[guard]   GET /api/orders (بلا توكن) -> 401
-[report]  GET /api/reports/financial -> 200
-          {"invoices":{"APPROVED":{"count":2,"total":"552.5000"}},
-           "ledger":{"debit":"552.5000","credit":"350.0000"}}
+GET /health                    -> 200 {"status":"ok","database":"up","version":"2.0.0"}
+POST /api/auth/login           -> 200 role=ADMIN status=ACTIVE
+GET /api/orders (بلا توكن)     -> 401
+GET /api/reports/financial     -> 200 {"invoices":{"APPROVED":{"count":2,"total":"552.5000"}},
+                                       "ledger":{"debit":"552.5000","credit":"350.0000"}}
 ```
-التشغيل تمّ من نسخة GitHub النظيفة، على **PostgreSQL 18.6 حقيقي** عبر بروتوكول Postgres السلكي. البيئة لا تسمح بتشغيل خدمة Postgres الأصلية (نواة الحاوية تمنع SysV shared memory)، فاستُخدم محرّك PostgreSQL نفسه في بناء WASM (`PGlite`) مع خادم سلكي — نفس المحرّك، ونفس الهجرات، ونفس القيود والمشغّلات. لم يُستخدم أي بديل وهمي.
 
-## 7. Android و Web — **لم يُبنَ، ولم يُعدَّل**
+## 7. الويب — بناء مُتحقَّق
 
-| البند | الحالة | السبب |
+- `tsc --noEmit`: نظيف بلا أخطاء أنواع (strict).
+- `vite build`: `✓ built in 5.54s` → JS 222.28 kB (gzip 67.99) + CSS 5.03 kB.
+- **فحص التعاقد:** استُخرجت كل نقاط النهاية التي يناديها العميل (20) وقوبلت بالخادم الحقيقي → **0 مفقودة**.
+- الشاشات: دخول/تسجيل · مشتري (كتالوج، سلة، طلبات، كشف حساب) · مخزن (تجهيز، فاتورة، شحن) · محصل (أرصدة، سندات، عمولة) · محاسب (اعتماد/رفض، مطابقة، ملخص) · مدير (مستخدمون، وكالات).
+
+## 8. أندرويد — بُني فعلاً على GitHub Actions
+
+### 8.1 المصنع
+
+`.github/workflows/android-build.yml`: يعمل على كل push يمسّ `apps/android/**` وعبر `workflow_dispatch`. JDK 21 + Gradle 9.6.0 + Android SDK من صورة الـ runner، ثم `:app:assembleDebug` ورفع الـ APK.
+
+### 8.2 رحلة البناء (شفافية كاملة — 5 محاولات)
+
+| # | النتيجة | السبب الحقيقي |
 |---|---|---|
-| بناء Android | **لم يُنفَّذ** | لا يوجد JDK ولا Android SDK ولا Gradle في هذه البيئة (`java: command not found`). لا يمكنني الادّعاء بنجاح بناء لم أشغّله |
-| بناء Web | **لم يُنفَّذ** | `apps/web` لم يُعدَّل في هذه المرحلة، فلم يكن هناك ما يُبنى. `npm run build -w apps/web` يحتاج تبعيات الواجهة غير المثبتة هنا |
-| تعديل كود Android/Web | **لم يحدث** | هذه مرحلة خلفية + قاعدة بيانات. الملفات القائمة (Compose: `Screens.kt` 49KB، `Detail.kt` 45KB…) بقيت كما هي بلا مساس |
+| 1 | ❌ | `android-actions/setup-android@v3` يفشل: حزمة `tools` أُزيلت من مستودع SDK |
+| 2 | ❌ | `kotlin.android` لم يعد مطلوباً منذ AGP 9.0 (Kotlin مدمج) |
+| 3 | ❌ | خطآن في Kotlin: `pending.intentSender` |
+| 4 | ❌ | خطآن: `it.receiptNumber` (المقصود `it.receipt.receiptNumber`) + `signInIntentSender` غير موجود في `play-services-auth:21.4.0` |
+| 5 | ✅ | **`BUILD SUCCESSFUL in 1m 2s`**، والـ APK مرفوع |
 
-واجهات B2B (شاشات الترحيب الثلاث، لوحات المخزن/المحصل/المحاسب، RTL) هي **المرحلة 2**، ولم أُنشئ لها ملفات فارغة ولا شاشات شكلية.
+**دلالة هذه الجولة:** المترجم هو من نقض الكود، لا أنا. ~2,500 سطر Kotlin كُتبت بلا مترجم محلي، ورفض المترجم 4 عيوب حقيقية، ثم أقرّ البناء.
 
-## 8. أخطاء/فجوات متبقية (معلنة بصراحة)
+### 8.3 فحص حزمة APK (تنزيل حقيقي + تفكيك)
 
-1. **إرسال البريد غير موصول**: التحقق وإعادة التعيين يولّدان رموزًا صحيحة، لكن لا يوجد مزوّد SMTP. الرموز تُعاد في الاستجابة فقط عند `EXPOSE_TOKENS=true` (تطوير/اختبار). في الإنتاج يلزم ربط مزوّد أو خدمة بريد.
-2. **Google Sign-In**: التحقق الحقيقي مبني على نقطة `oauth2.googleapis.com/tokeninfo` + فحص `aud` مقابل `GOOGLE_CLIENT_ID`. الاختبار استخدم مدقّقًا محقونًا (`app.locals.googleVerifier`)، ولم يُنفَّذ تبادل حقيقي مع Google لعدم وجود `idToken` فعلي.
-3. **لا حدّ لمحاولات الدخول** (rate limiting / قفل حساب) — فجوة أمنية معروفة، لم تُنفَّذ.
-4. **الإشعارات داخلية فقط** (جدول `Notification`)؛ لا Push ولا WebSocket.
-5. **حالة `DELIVERED`** لا يوجد لها مسار تأكيد استلام بعد الشحن.
-6. **إعدادات إظهار الحقول الاختيارية** تُضبط لكل منتج (وأيضًا كقيم افتراضية في `SystemSettings.productDisplaySettings`)؛ الأولوية لحقول المنتج.
-7. **نماذج المستهلك القديمة** (Offer, Rfq, Dispute, Cart…) محفوظة في المخطط لكن بلا مسارات في نسخة B2B.
-8. **`scripts/verify-source.mjs`** القديم لم يُشغَّل ولم يُحدَّث.
+| الفحص | النتيجة |
+|---|---|
+| الحجم | 22,833,810 بايت (21.6 MB) |
+| المحتوى | 210 مدخلاً · 7 ملفات dex (~71 MB غير مضغوطة) · `resources.arsc` |
+| التوقيع | كتلة توقيع APK v2/v3 عند 22,813,558 (قبل الفهرس المركزي) |
+| المانيفست | `com.dollar.marketplace` · `MainActivity` · `INTERNET` · `usesCleartextTraffic` |
+| أصناف B2B | `B2bOnboardingKt` `B2bLoginKt` `B2bState` `B2bApi` `B2bBuyerKt` `B2bWarehouseKt` `B2bCollectorKt` `B2bAccountantKt` `B2bAdminKt` — **كلها موجودة** |
+| التبعيات | `GoogleSignIn` · `io.ktor.client.HttpClient` · `kotlinx.serialization` |
+| نصوص عربية | «دولار: تجارة الجملة بثقة» و«تخطٍّ إلى الدخول» و`onboarding_seen_v1` داخل الحزمة |
 
-## 9. خطوات يدوية ضرورية
+### 8.4 ما يفعله التطبيق
 
-1. `docker compose up -d postgres` ثم `cd apps/api && cp .env.example .env` وضبط `DATABASE_URL` و`JWT_SECRET`.
+1. **شاشات ترحيب ثلاث** (عنوان تسويقي + وصف + مزايا + مؤشر تقدّم + متابعة/رجوع + تخطٍّ إلى الدخول)، تُحفظ علامة إكمالها فلا تعود تظهر.
+2. **هوية بصرية**: أسود ملكي + ذهبي، و**RTL مثبّت على مستوى الجذر**.
+3. **دخول**: بريد/كلمة مرور + **Google Sign-In** (الرمز يُتحقق منه في الخادم، لا نثق ببريد العميل) + تسجيل ذاتي للمشتري فقط.
+4. **خمس لوحات معزولة**: المشتري · المخزن (تجهيز جزئي/فاتورة/شحن) · المحصل (سندات/عمولة) · المحاسب (اعتماد/رفض بسبب) · المدير (منح الأدوار/الوكالات).
+
+## 9. ما لم يُنفَّذ — بلا تجميل
+
+1. **لم يُشغَّل الـ APK على جهاز**. البيئة تملك جسر جهاز (لقطات/لمس/قراءة شاشة) لكنه **لا يملك قناة تثبيت**: `adb-shell` يرد `[DEVICE_CHANNEL_UNAVAILABLE]` (لا root/Shizuku/ADB)، وقائمة `/app/*` لا تحتوي نقطة تثبيت. فالتطبيق مبنيّ ومفحوص كحزمة، لا مُجرّب تشغيلياً.
+2. **Google Sign-In غير مُفعّل حياً**: `GOOGLE_WEB_CLIENT_ID` غير مضبوط في المصنع، ولم يُجرَّب تبادل حقيقي مع Google. الزر يعرض رسالة صريحة بدل أن ينكسر.
+3. **إرسال البريد غير موصول** (لا SMTP): رموز التحقق/التصفير تُعاد فقط عند `EXPOSE_TOKENS=true`.
+4. **لا حدّ لمحاولات الدخول** (rate limiting / قفل حساب) — فجوة أمنية معروفة.
+5. **الإشعارات داخلية فقط** (جدول `Notification`، لا Push/WebSocket).
+6. **لا مسار تأكيد استلام** (حالة `DELIVERED`) بعد الشحن.
+7. **نماذج المستهلك القديمة** (Offer, Rfq, Dispute, Cart…) محفوظة في المخطط بلا مسارات في نسخة B2B.
+
+## 10. خطوات يدوية مطلوبة
+
+1. `docker compose up -d postgres` ثم `cd apps/api && cp .env.example .env` وضبط `DATABASE_URL` + `JWT_SECRET`.
 2. `npx prisma migrate deploy && node prisma/seed.js && npm start`.
-3. ضبط `GOOGLE_CLIENT_ID` في البيئة، وفي تطبيق Android استخدام **Credential Manager / Google Identity** لإصدار `idToken` ثم إرساله إلى `/api/auth/google`.
-4. ربط مزوّد بريد (Resend/SES/SMTP) لإرسال رموز التحقق فعلًا.
-5. إبطال توكن GitHub المستخدم في التنفيذ (انتهى غرضه).
+3. **لتفعيل Google على أندرويد**: أضف Repository Variable باسم `GOOGLE_WEB_CLIENT_ID`، وسجّل SHA-1 لبصمة الـ debug keystore في Google Cloud Console.
+4. **لتوجيه التطبيق لخادمك**: Repository Variable باسم `DOLLAR_API_BASE_URL` (الافتراضي `http://10.0.2.2:4000/api` للمحاكي).
+5. ربط مزوّد بريد (Resend/SES/SMTP) لإرسال رموز التحقق فعلاً.
+6. إبطال توكن GitHub المستخدم في التنفيذ بعد الانتهاء.
 
 ---
 
@@ -113,8 +158,8 @@ $ node --test tests/flow.test.js
 
 - كل مبلغ `Decimal(18,4)`؛ لا Float في أي مسار مالي.
 - الاعتماد هو المدخل الوحيد للدفتر: الفاتورة DEBIT، السند CREDIT.
-- `@@unique([referenceType, referenceId, transactionType])` يمنع الترحيل المزدوج (أُثبت باختبار تزامن).
-- `FinancialTransaction` و`AuditLog` **غير قابلين للتعديل على مستوى القاعدة** (مشغّلات ترفض UPDATE/DELETE) — أُثبت باختبار.
+- `@@unique([referenceType, referenceId, transactionType])` يمنع الترحيل المزدوج (مُثبت باختبار تزامن).
+- `FinancialTransaction` و`AuditLog` غير قابلين للتعديل على مستوى القاعدة (مُثبت باختبار).
 - سند القبض لا يحرّك الرصيد قبل اعتماد المحاسب.
-- العمولة تُجمَّد وقت الاعتماد؛ تغيير النسبة لاحقًا لا يعيد كتابة التاريخ.
-- فاتورة حيّة واحدة لكل طلب عبر فهرس فريد جزئي.
+- العمولة تُجمَّد وقت الاعتماد؛ تغيير النسبة لاحقاً لا يعيد كتابة التاريخ.
+- فاتورة حيّة واحدة لكل طلب (فهرس فريد جزئي).
