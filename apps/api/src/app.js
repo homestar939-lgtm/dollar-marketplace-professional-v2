@@ -15,6 +15,10 @@ import { accountingRouter } from './modules/accounting/accounting.routes.js'
 import { reportsRouter } from './modules/reports/reports.routes.js'
 import { settingsRouter } from './modules/settings/settings.routes.js'
 import { notificationsRouter } from './modules/notifications/notifications.routes.js'
+// ✅ V3: وحدات جديدة (إضافة فقط — لا تعديل على الوحدات القائمة)
+import { phoneAuthRouter } from './modules-v3/phone-auth/phone-auth.routes.js'
+import { deliveryRouter } from './modules-v3/delivery/delivery.routes.js'
+import { auditV3Router } from './modules-v3/audit-v3/audit-v3.routes.js'
 
 export function createApp({ googleVerifier } = {}) {
   const app = express()
@@ -45,6 +49,11 @@ export function createApp({ googleVerifier } = {}) {
   app.use('/api/reports', reportsRouter)
   app.use('/api/settings', settingsRouter)
   app.use('/api/notifications', notificationsRouter)
+
+  // ✅ V3: مسارات جديدة تُضاف بعد المسارات القائمة
+  app.use('/api/v3/auth/phone', phoneAuthRouter)
+  app.use('/api/v3', deliveryRouter)
+  app.use('/api/v3', auditV3Router)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

@@ -1,0 +1,73 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   V3 Web — طبقة أنماط إضافية فقط (لا تعدّل src/styles.css)
+   تُستخدم مع متغيّرات الهوية الموجودة مسبقاً: --gold, --panel, --black, ...
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.v3-page {
+  min-height: 100vh;
+  background: radial-gradient(circle at 85% -15%, #23200f 0%, var(--black) 60%);
+  color: var(--white);
+  padding: 32px;
+}
+
+.v3-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.v3-title { font-size: 28px; font-weight: 700; color: var(--gold); margin: 0; }
+.v3-subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.v3-muted { color: var(--muted); }
+.v3-loading { min-height: 60vh; display: grid; place-items: center; color: var(--gold); }
+
+.v3-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 28px; }
+
+.v3-stat {
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.v3-stat:hover { transform: translateY(-2px); border-color: var(--gold); }
+.v3-icon-box { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: rgba(212, 175, 55, 0.12); color: var(--gold); }
+.v3-stat-value { font-size: 22px; font-weight: 700; margin: 0; }
+.v3-stat-label { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+
+.v3-panel { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+.v3-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.v3-panel-head h2 { margin: 0; font-size: 18px; }
+
+.v3-log-list { display: flex; flex-direction: column; gap: 10px; max-height: 600px; overflow-y: auto; }
+.v3-log {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; animation: v3-fade-up 0.35s ease both;
+}
+.v3-log:hover { background: rgba(212, 175, 55, 0.06); }
+.v3-log-user { display: flex; align-items: center; gap: 8px; }
+.v3-role-chip { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: rgba(212, 175, 55, 0.14); color: var(--gold); }
+.v3-log-action { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.v3-log-meta { text-align: left; font-size: 11px; color: var(--muted); }
+.v3-empty { color: var(--muted); text-align: center; padding: 24px; }
+
+/* ── أزرار V3 (بديل خفيف عن مكتبات الأنيميشن الخارجية) ───────────────────── */
+.v3-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 10px; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+  font-family: inherit; transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.v3-btn:hover:not(:disabled) { transform: scale(1.02); }
+.v3-btn:active:not(:disabled) { transform: scale(0.98); }
+.v3-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.v3-btn-sm { height: 32px; padding: 0 12px; font-size: 12px; }
+.v3-btn-md { height: 40px; padding: 0 16px; font-size: 14px; }
+.v3-btn-lg { height: 48px; padding: 0 24px; font-size: 16px; }
+.v3-btn-default { background: var(--gold); color: var(--black); }
+.v3-btn-default:hover:not(:disabled) { background: #c4a032; }
+.v3-btn-outline { background: transparent; border-color: var(--gold); color: var(--gold); }
+.v3-btn-outline:hover:not(:disabled) { background: rgba(212, 175, 55, 0.1); }
+.v3-btn-ghost { background: transparent; color: var(--gold); }
+.v3-btn-ghost:hover:not(:disabled) { background: rgba(212, 175, 55, 0.1); }
+.v3-btn-destructive { background: var(--red); color: #fff; }
+.v3-btn-destructive:hover:not(:disabled) { background: #c93b40; }
+
+@keyframes v3-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
