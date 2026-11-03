@@ -58,6 +58,12 @@ import kotlinx.coroutines.launch
 /** مراحل الدخول: إدخال الرقم ← رمز التحقق ← انتظار الخادم. */
 enum class LoginStep { PHONE, OTP, LOADING }
 
+/**
+ * ألوان حقول الإدخال. `OutlinedTextFieldDefaults.colors` دالة @Composable،
+ * لذا يجب وسم الغلاف بها وإلا فشل التصريف:
+ * "Functions which invoke @Composable functions must be marked with the @Composable annotation".
+ */
+@Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = RoyalGold,
     unfocusedBorderColor = Color(0xFF3A3A41),
