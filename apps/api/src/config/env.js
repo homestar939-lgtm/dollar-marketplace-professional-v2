@@ -17,8 +17,9 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   // Dev/test convenience: return verification/reset tokens in the response body.
   EXPOSE_TOKENS: z.enum(['true', 'false']).default('false'),
-  // بوابة النسخة التجريبية: تشغيل مسار الدخول التجريبي وتعطيل phone-auth.
-  DEMO_MODE: z.enum(['true', 'false']).default('false'),
+  // النسخة التجريبية: مفعّلة افتراضياً — الدخول من قائمة الأدوار بلا تحقق
+  // برقم الهاتف (phone-auth يرجع 404). للعودة للوضع الكامل: DEMO_MODE="false".
+  DEMO_MODE: z.enum(['true', 'false']).default('true'),
   CORS_ORIGINS: z.string().default('*'),
   SEED_ADMIN_EMAIL: z.string().default('admin@dollar.local'),
   SEED_ADMIN_PASSWORD: z.string().default('Admin@12345')
