@@ -84,6 +84,16 @@ class B2bApi(private val tokenProvider: () -> String? = { null }) {
             setBody(B2bGoogleBody(idToken))
         }.decode()
 
+    /**
+     * الدخول التجريبي: يختار الخادم مستخدماً جاهزاً لدور الطلب ويُصدر جلسة حقيقية.
+     * المسار `POST /v3/demo/login` بجسم `{ role }`، ونفس فك الترميز ومعالجة الأخطاء كبقية المصادقة.
+     */
+    suspend fun demoLogin(role: String): B2bAuthResponse =
+        client.post("$base/v3/demo/login") {
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("role" to role))
+        }.decode()
+
     suspend fun me(): B2bMeResponse = client.get("$base/auth/me") { b2bAuth() }.decode()
 
     suspend fun logout() {

@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, tokenStore } from './api'
 import type { User } from './types'
 import Login from './screens/Login'
+import DemoLogin from './v3/screens/DemoLogin'
 import Buyer from './screens/Buyer'
 import Warehouse from './screens/Warehouse'
 import Collector from './screens/Collector'
 import Accountant from './screens/Accountant'
 import Admin from './screens/Admin'
 import { Button } from './components/ui'
+
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'المدير', WAREHOUSE: 'المخزن', COLLECTOR: 'المحصل', ACCOUNTANT: 'المحاسب', BUYER: 'المشتري', SELLER: 'البائع', SUPPORT: 'الدعم'
@@ -48,7 +51,9 @@ export default function App() {
 
   if (booting) return <div className="boot">جارٍ التحميل…</div>
 
-  if (!user) return <Login onAuthenticated={setUser} />
+  if (!user) {
+    return DEMO_MODE ? <DemoLogin onAuthenticated={setUser} /> : <Login onAuthenticated={setUser} />
+  }
 
   return (
     <div className="shell">

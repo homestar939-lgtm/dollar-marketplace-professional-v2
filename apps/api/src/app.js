@@ -19,6 +19,7 @@ import { notificationsRouter } from './modules/notifications/notifications.route
 import { phoneAuthRouter } from './modules-v3/phone-auth/phone-auth.routes.js'
 import { deliveryRouter } from './modules-v3/delivery/delivery.routes.js'
 import { auditV3Router } from './modules-v3/audit-v3/audit-v3.routes.js'
+import { demoAuthRouter } from './modules-v3/demo-auth/demo-auth.routes.js'
 
 export function createApp({ googleVerifier } = {}) {
   const app = express()
@@ -54,6 +55,7 @@ export function createApp({ googleVerifier } = {}) {
   app.use('/api/v3/auth/phone', phoneAuthRouter)
   app.use('/api/v3', deliveryRouter)
   app.use('/api/v3', auditV3Router)
+  app.use('/api/v3', demoAuthRouter)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

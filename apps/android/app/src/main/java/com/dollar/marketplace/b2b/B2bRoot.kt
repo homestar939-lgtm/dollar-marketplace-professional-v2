@@ -22,7 +22,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,8 +35,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dollar.marketplace.BuildConfig
 import com.dollar.marketplace.DollarTheme
 import com.dollar.marketplace.Pal
+import com.dollar.marketplace.v3.auth.DemoLoginScreen
 
 /**
  * نقطة إقلاع تطبيق B2B:
@@ -43,6 +48,13 @@ import com.dollar.marketplace.Pal
 @Composable
 fun B2bRoot() {
     val context = LocalContext.current
+
+    // الوضع التجريبي: لا نمرّ بترحيب/دخول الإنتاج — تدفّق DemoLoginScreen وحده ثم لوحة الدور.
+    if (BuildConfig.DEMO_MODE) {
+        B2bDemoEntry()
+        return
+    }
+
     val state = remember { B2bState(context.applicationContext) }
     LaunchedEffect(Unit) { state.bootstrap() }
 
@@ -155,5 +167,32 @@ private fun NoDashboard(state: B2bState) {
         Text("لا توجد لوحة مخصّصة لدورك بعد.", color = Pal.Muted, fontSize = 14.sp)
         Spacer(Modifier.height(12.dp))
         B2bGhostButton(text = "تسجيل الخروج") { state.logout() }
+    }
+}
+
+/**
+ * جذر الوضع التجريبي (DEMO_MODE):
+ *   DemoLoginScreen (الترحيب + اختيار الدور) ← لوحة الدور.
+ *
+ * الجلسة تُحفظ من DemoLoginScreen في مخزن B2bState نفسه؛ وبعد المصادقة نرفع
+ * `sessionEpoch` فيُعاد إنشاء الحالة فتقرأ الرمز المحفوظ، ويستعيد `bootstrap()`
+ * المستخدم من الخادم ثم تعرض `B2bShell` اللوحة المطابقة لدوره.
+ */
+@Composable
+private fun B2bDemoEntry() {
+    val context = LocalContext.current
+    var sessionEpoch by remember { mutableIntStateOf(0) }
+    val state = remember(sessionEpoch) { B2bState(context.applicationContext) }
+    LaunchedEffect(state) { state.bootstrap() }
+
+    DollarTheme {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            val user = state.user
+            when {
+                state.bootstrapping -> B2bSplash()
+                user == null -> DemoLoginScreen(onAuthenticated = { sessionEpoch += 1 })
+                else -> B2bShell(state)
+            }
+        }
     }
 }

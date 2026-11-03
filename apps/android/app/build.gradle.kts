@@ -26,9 +26,11 @@ android {
     }
     val apiBaseUrl = providers.gradleProperty("API_BASE_URL").orElse("http://10.0.2.2:4000/api")
     val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orElse("")
+    val demoMode = providers.gradleProperty("DEMO_MODE").orElse("false")
     buildTypes.configureEach {
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleWebClientId.get()}\"")
+        buildConfigField("Boolean", "DEMO_MODE", demoMode.get())
     }
 }
 

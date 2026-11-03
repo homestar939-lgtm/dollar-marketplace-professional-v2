@@ -17,6 +17,8 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   // Dev/test convenience: return verification/reset tokens in the response body.
   EXPOSE_TOKENS: z.enum(['true', 'false']).default('false'),
+  // بوابة النسخة التجريبية: تشغيل مسار الدخول التجريبي وتعطيل phone-auth.
+  DEMO_MODE: z.enum(['true', 'false']).default('false'),
   CORS_ORIGINS: z.string().default('*'),
   SEED_ADMIN_EMAIL: z.string().default('admin@dollar.local'),
   SEED_ADMIN_PASSWORD: z.string().default('Admin@12345')
@@ -33,6 +35,7 @@ export const env = {
   isProd: parsed.data.NODE_ENV === 'production',
   isTest: parsed.data.NODE_ENV === 'test',
   exposeTokens: parsed.data.EXPOSE_TOKENS === 'true',
+  demoMode: parsed.data.DEMO_MODE === 'true',
   corsOrigins: parsed.data.CORS_ORIGINS === '*'
     ? '*'
     : parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
