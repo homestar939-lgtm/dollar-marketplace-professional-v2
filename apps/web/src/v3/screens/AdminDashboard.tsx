@@ -3,9 +3,10 @@
 // يعتمد على عميل الـ API الموجود (`src/api.ts`) و`/api/v3/audit-logs` (المسار نسبي هنا لأن الأساس في api.ts).
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Activity, RefreshCw, TrendingUp, Users } from 'lucide-react'
+import { Activity, Plus, RefreshCw, TrendingUp, Users } from 'lucide-react'
 import { request } from '../../api'
 import { Button } from '../components/ui/Button'
+import AddUser from './AddUser'
 import '../v3.css'
 
 interface AuditActor {
@@ -39,6 +40,7 @@ interface AuditStats {
 const actorOf = (log: AuditLog): AuditActor | null => log.actor ?? log.user ?? null
 
 export default function AdminDashboardV3() {
+  const [showAddUser, setShowAddUser] = useState(false)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [stats, setStats] = useState<AuditStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -73,6 +75,10 @@ export default function AdminDashboardV3() {
     void refresh()
   }, [refresh])
 
+  if (showAddUser) {
+    return <AddUser onBack={() => setShowAddUser(false)} onCreated={() => setShowAddUser(false)} />
+  }
+
   if (loading) {
     return (
       <div className="v3-page v3-loading">
@@ -88,10 +94,15 @@ export default function AdminDashboardV3() {
           <h1 className="v3-title">لوحة المدير</h1>
           <p className="v3-subtitle">إدارة كاملة للمنصة وسجل الإجراءات</p>
         </div>
-        <Button variant="outline" size="md" onClick={() => void refresh()}>
-          <RefreshCw size={16} />
-          تحديث
-        </Button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Button variant="outline" size="md" onClick={() => setShowAddUser(true)}>
+            <Plus size={16} /> إضافة مستخدم
+          </Button>
+          <Button variant="outline" size="md" onClick={() => void refresh()}>
+            <RefreshCw size={16} />
+            تحديث
+          </Button>
+        </div>
       </header>
 
       {error && (

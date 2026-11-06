@@ -114,6 +114,8 @@ export const api = {
 
   users: (query?: Record<string, string | number | undefined>) =>
     request<import('./types').Paged<import('./types').User>>('/users', { query }),
+  createUser: (body: { name: string; username: string; email?: string; password: string; role: import('./types').Role }) =>
+    request<{ user: import('./types').User }>('/v3/users', { method: 'POST', body }),
   createStaff: (body: { name: string; email: string; password: string; role: string; commissionRate?: number }) =>
     request<{ user: import('./types').User }>('/users', { method: 'POST', body }),
   settings: () => request<{ settings: Record<string, unknown> }>('/settings'),
