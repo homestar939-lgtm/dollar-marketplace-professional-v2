@@ -9,6 +9,7 @@ import Collector from './screens/Collector'
 import Accountant from './screens/Accountant'
 import Admin from './screens/Admin'
 import { Button } from './components/ui'
+import { connectRealtime, subscribeRealtimeStatus } from './v3/realtime'
 
 // النسخة التجريبية افتراضية: قائمة الأدوار بدل تسجيل الدخول.
 // لتعطيلها صراحةً: VITE_DEMO_MODE=false
@@ -21,6 +22,7 @@ const ROLE_LABEL: Record<string, string> = {
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [booting, setBooting] = useState(true)
+  const [realtimeLive, setRealtimeLive] = useState(false)
 
   const bootstrap = useCallback(async () => {
     if (!tokenStore.get()) {
@@ -40,6 +42,15 @@ export default function App() {
   useEffect(() => {
     void bootstrap()
   }, [bootstrap])
+
+  useEffect(() => {
+    const unsubscribeStatus = subscribeRealtimeStatus(setRealtimeLive)
+    const disconnect = connectRealtime(user ? tokenStore.get() : null)
+    return () => {
+      disconnect()
+      unsubscribeStatus()
+    }
+  }, [user?.id])
 
   const logout = async () => {
     try {
@@ -69,6 +80,10 @@ export default function App() {
         </div>
         <nav>
           <span className="nav-item nav-active">{ROLE_LABEL[user.role] ?? user.role}</span>
+          <span className="nav-item" role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: realtimeLive ? '#22c55e' : '#737373', boxShadow: realtimeLive ? '0 0 8px #22c55e' : 'none' }} />
+            {realtimeLive ? 'Live Sync' : 'جاري الاتصال...'}
+          </span>
         </nav>
         <div className="sidebar-foot">
           <span className="who">{user.name}</span>

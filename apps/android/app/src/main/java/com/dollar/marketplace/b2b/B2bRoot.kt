@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -110,6 +111,10 @@ private fun roleLabel(role: String): String = when (role) {
 @Composable
 private fun B2bShell(state: B2bState) {
     val user = state.user ?: return
+    DisposableEffect(state, state.token) {
+        if (!state.token.isNullOrBlank()) state.startRealtime() else state.stopRealtime()
+        onDispose { state.stopRealtime() }
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -136,6 +141,11 @@ private fun B2bShell(state: B2bState) {
                 Text(roleLabel(user.role), color = Pal.GoldSoft, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text(user.name, color = Pal.Muted, fontSize = 11.sp)
             }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (state.realtime.connected) Pal.Success else Pal.Muted))
+                Text(if (state.realtime.connected) "Live" else "Offline", color = if (state.realtime.connected) Pal.Success else Pal.Muted, fontSize = 10.sp)
+            }
+            Spacer(Modifier.width(10.dp))
             TextButton(onClick = { state.logout() }) {
                 Icon(Icons.Default.Logout, contentDescription = "خروج", tint = Pal.Muted, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))

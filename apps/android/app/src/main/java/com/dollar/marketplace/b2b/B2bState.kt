@@ -2,13 +2,16 @@ package com.dollar.marketplace.b2b
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.dollar.marketplace.BuildConfig
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /** سطر سلة محلي — الأسعار تُحسب على الخادم دائماً، وما هنا للعرض فقط. */
@@ -47,8 +50,25 @@ class B2bState(context: Context) {
     val cart = mutableStateListOf<B2bCartLine>()
 
     val api = B2bApi { token }
+    val realtime = B2bRealtime(BuildConfig.API_BASE_URL) { token }
+    var realtimeRefreshVersion by mutableIntStateOf(0)
+        private set
+    private var realtimeJob: Job? = null
 
     val isLoggedIn: Boolean get() = token != null && user != null
+
+    fun startRealtime() {
+        if (realtimeJob?.isActive == true || token.isNullOrBlank()) return
+        realtimeJob = scope.launch {
+            realtime.collect { realtimeRefreshVersion += 1 }
+        }
+    }
+
+    fun stopRealtime() {
+        realtimeJob?.cancel()
+        realtimeJob = null
+        realtime.updateDisconnected()
+    }
 
     fun clearError() {
         error = null
@@ -143,6 +163,7 @@ class B2bState(context: Context) {
 
     fun logout() {
         scope.launch {
+            stopRealtime()
             runCatching { api.logout() }
             prefs.edit().remove(KEY_TOKEN).apply()
             token = null

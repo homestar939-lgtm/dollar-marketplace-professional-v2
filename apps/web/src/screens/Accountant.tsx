@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, ApiError } from '../api'
 import type { Invoice, Receipt } from '../types'
 import { Badge, Button, Card, Empty, ErrorNote, Stat } from '../components/ui'
+import { subscribeRealtime } from '../v3/realtime'
 
 export default function Accountant() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -37,6 +38,8 @@ export default function Accountant() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, periodDate])
+
+  useEffect(() => subscribeRealtime(() => { void load() }), [period, periodDate])
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true)
