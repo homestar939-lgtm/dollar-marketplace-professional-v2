@@ -55,6 +55,10 @@ class B2bRealtime(
         }
     }
 
+    fun updateDisconnected() {
+        connected = false
+    }
+
     private companion object {
         const val RETRY_DELAY_MS = 3_000L
         val EVENT_TYPES = setOf("order.created", "invoice.approved", "receipt.confirmed")
