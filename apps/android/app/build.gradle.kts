@@ -51,7 +51,6 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.6.2")
     implementation("io.coil-kt.coil3:coil-network-ktor3:3.6.2")
     implementation("io.ktor:ktor-client-android:3.5.2")
-    implementation("io.ktor:ktor-client-sse:3.5.2")
     implementation("io.ktor:ktor-client-content-negotiation:3.5.2")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.5.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
