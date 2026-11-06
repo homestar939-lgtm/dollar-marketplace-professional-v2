@@ -2,15 +2,25 @@ import { prisma } from '../../lib/prisma.js'
 import { money, add, sub, ZERO, str } from '../../lib/money.js'
 import { commissionSummary } from '../../services/commission-service.js'
 import { ledgerTotals, outstandingInvoices } from '../../services/financial-ledger.js'
+import { financialPeriod } from '../../lib/financial-period.js'
 
 const range = (from, to) => (from || to ? { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } : undefined)
 
-export async function collectionsReport({ from, to, collectorId, currency }) {
+function resolvePeriod({ from, to, period, date }) {
+  if (!period) return { from, to, bounds: null, summary: { from: from ?? null, to: to ?? null } }
+  const bounds = financialPeriod(period, date || new Date())
+  return { from: bounds.from, to: bounds.to, bounds, summary: { type: bounds.period, from: bounds.from, to: bounds.to } }
+}
+
+export async function collectionsReport({ from, to, collectorId, currency, period, date }) {
+  const resolved = resolvePeriod({ from, to, period, date })
   const where = {
     status: 'APPROVED',
     ...(collectorId ? { collectorId } : {}),
     ...(currency ? { currency } : {}),
-    ...(range(from, to) ? { approvedAt: range(from, to) } : {})
+    ...(resolved.bounds
+      ? { approvedAt: { gte: resolved.bounds.start, lt: resolved.bounds.endExclusive } }
+      : range(from, to) ? { approvedAt: range(from, to) } : {})
   }
   const receipts = await prisma.receipt.findMany({
     where,
@@ -35,7 +45,7 @@ export async function collectionsReport({ from, to, collectorId, currency }) {
   }
 
   return {
-    period: { from: from ?? null, to: to ?? null },
+    period: resolved.summary,
     totals: {
       receipts: receipts.length,
       collected: str(receipts.reduce((acc, r) => add(acc, r.amount), ZERO)),
@@ -50,13 +60,14 @@ export async function collectionsReport({ from, to, collectorId, currency }) {
   }
 }
 
-export async function commissionsReport({ from, to, collectorId }) {
+export async function commissionsReport({ from, to, collectorId, period, date }) {
+  const resolved = resolvePeriod({ from, to, period, date })
   const collectors = collectorId
     ? await prisma.user.findMany({ where: { id: collectorId } })
     : await prisma.user.findMany({ where: { role: 'COLLECTOR' } })
 
   const rows = await Promise.all(collectors.map(async (collector) => {
-    const summary = await commissionSummary(prisma, { collectorId: collector.id, from, to })
+    const summary = await commissionSummary(prisma, { collectorId: collector.id, from: resolved.from, to: resolved.to })
     return {
       collectorId: collector.id,
       collectorName: collector.name,
@@ -68,7 +79,7 @@ export async function commissionsReport({ from, to, collectorId }) {
   }))
 
   return {
-    period: { from: from ?? null, to: to ?? null },
+    period: resolved.summary,
     rows,
     totals: {
       collected: str(rows.reduce((acc, r) => add(acc, r.collected), ZERO)),

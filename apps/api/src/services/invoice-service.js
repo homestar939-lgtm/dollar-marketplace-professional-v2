@@ -6,7 +6,7 @@ import { recordAudit } from '../utils/audit.js'
 import { postDebit } from './financial-ledger.js'
 import { nextInvoiceNumber } from './numbering.js'
 
-const LIVE_STATUSES = ['DRAFT', 'SENT', 'APPROVED']
+const LIVE_STATUSES = ['DRAFT', 'SENT', 'APPROVED', 'PARTIALLY_PAID', 'PAID']
 
 function priceLine(quantity, unitPrice) {
   return mul(unitPrice, money(quantity))
@@ -145,6 +145,7 @@ export async function approveInvoice({ invoiceId, actorId, req = null }) {
       invoiceId: invoice.id,
       description: `Invoice ${invoice.invoiceNumber} approved`
     })
+    await tx.user.update({ where: { id: invoice.buyerId }, data: { debitBalance: { increment: invoice.totalAmount } } })
 
     await tx.notification.create({
       data: { userId: invoice.buyerId, title: 'تم اعتماد الفاتورة', body: `تم اعتماد الفاتورة ${invoice.invoiceNumber} وإضافتها إلى رصيدك`, type: 'INVOICE' }
@@ -184,7 +185,7 @@ export async function voidInvoice({ invoiceId, actorId, req = null }) {
   return withSerializable(async (tx) => {
     const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } })
     if (!invoice) throw notFound('Invoice not found')
-    if (invoice.status === 'APPROVED') throw conflict('Approved invoices must be reversed through the ledger, not voided')
+    if (['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(invoice.status)) throw conflict('Approved invoices must be reversed through the ledger, not voided')
     if (invoice.status === 'VOIDED') throw conflict('Invoice is already voided')
 
     const updated = await tx.invoice.update({ where: { id: invoiceId }, data: { status: 'VOIDED', voidedAt: new Date() } })

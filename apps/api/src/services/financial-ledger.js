@@ -85,7 +85,7 @@ export async function ledgerTotals(client, { buyerId, currency } = {}) {
 /** Outstanding = approved invoices minus every receipt amount allocated to them. */
 export async function outstandingInvoices(client, { buyerId, currency } = {}) {
   const invoices = await client.invoice.findMany({
-    where: { buyerId, status: 'APPROVED', ...(currency ? { currency } : {}) },
+    where: { buyerId, status: { in: ['APPROVED', 'PARTIALLY_PAID'] }, ...(currency ? { currency } : {}) },
     include: { allocations: true },
     orderBy: { approvedAt: 'asc' }
   })

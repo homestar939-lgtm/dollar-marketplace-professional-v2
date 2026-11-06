@@ -66,7 +66,7 @@ export async function buyerStatement({ buyerId, from, to, currency }) {
 /** Reconciliation worklist: anything that does not tie out on both sides. */
 export async function matchingQueue() {
   const [approvedInvoices, approvedReceipts, transactions, allocations] = await Promise.all([
-    prisma.invoice.findMany({ where: { status: 'APPROVED' }, select: { id: true, invoiceNumber: true, totalAmount: true, buyerId: true } }),
+    prisma.invoice.findMany({ where: { status: { in: ['APPROVED', 'PARTIALLY_PAID', 'PAID'] } }, select: { id: true, invoiceNumber: true, totalAmount: true, buyerId: true } }),
     prisma.receipt.findMany({ where: { status: 'APPROVED' }, select: { id: true, receiptNumber: true, amount: true, buyerId: true } }),
     prisma.financialTransaction.findMany({ select: { id: true, referenceType: true, referenceId: true, transactionType: true, amount: true } }),
     prisma.paymentAllocation.findMany({ select: { receiptId: true, invoiceId: true, amount: true } })
