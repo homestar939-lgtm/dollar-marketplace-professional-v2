@@ -3,8 +3,8 @@ import { env } from './config/env.js'
 import { prisma } from './lib/prisma.js'
 
 const app = createApp()
-const server = app.listen(env.PORT, () => {
-  console.log(`[dollar-api] listening on :${env.PORT} (${env.NODE_ENV})`)
+const server = app.listen(env.PORT, '0.0.0.0', () => {
+  console.log(`[dollar-api] listening on 0.0.0.0:${env.PORT} (${env.NODE_ENV})`)
 })
 
 async function shutdown(signal) {

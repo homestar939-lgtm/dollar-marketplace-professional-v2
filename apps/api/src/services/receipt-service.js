@@ -6,6 +6,7 @@ import { recordAudit } from '../utils/audit.js'
 import { postCredit } from './financial-ledger.js'
 import { nextReceiptNumber } from './numbering.js'
 import { resolveCommissionRate } from './commission-service.js'
+import { publishRealtimeEvent } from '../lib/realtime-hub.js'
 
 async function outstandingFor(tx, buyerId) {
   const invoices = await tx.invoice.findMany({
@@ -130,7 +131,7 @@ export async function sendReceipt({ receiptId, actorId, req = null }) {
 
 /** Approval is the only point where a receipt touches the ledger and the balance. */
 export async function approveReceipt({ receiptId, actorId, req = null }) {
-  return withSerializable(async (tx) => {
+  const result = await withSerializable(async (tx) => {
     const receipt = await tx.receipt.findUnique({ where: { id: receiptId } })
     if (!receipt) throw notFound('Receipt not found')
     if (receipt.status === 'APPROVED') throw conflict('Receipt is already approved')
@@ -208,6 +209,13 @@ export async function approveReceipt({ receiptId, actorId, req = null }) {
 
     return { receipt: updated, transaction: posting }
   })
+  publishRealtimeEvent({
+    type: 'receipt.confirmed',
+    data: { receiptId: result.receipt.id, receiptNumber: result.receipt.receiptNumber },
+    userIds: [result.receipt.buyerId, result.receipt.collectorId],
+    roles: ['ADMIN', 'ACCOUNTANT']
+  })
+  return result
 }
 
 export async function rejectReceipt({ receiptId, actorId, reason, req = null }) {

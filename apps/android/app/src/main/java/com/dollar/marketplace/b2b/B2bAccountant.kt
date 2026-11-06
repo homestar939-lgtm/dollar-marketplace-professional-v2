@@ -47,7 +47,7 @@ fun B2bAccountantScreen(state: B2bState) {
     var refresh by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(refresh) {
+    LaunchedEffect(refresh, state.realtimeRefreshVersion) {
         loading = true
         runCatching { state.api.invoices(status = "SENT") }
             .onSuccess { invoices = it.data }.onFailure { message = it.message }

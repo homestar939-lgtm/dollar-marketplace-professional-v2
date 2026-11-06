@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, ApiError } from '../api'
 import type { Agency, User } from '../types'
 import { Badge, Button, Card, Empty, ErrorNote, Field } from '../components/ui'
+import { subscribeRealtime } from '../v3/realtime'
 
 export default function Admin() {
   const [users, setUsers] = useState<User[]>([])
@@ -31,6 +32,8 @@ export default function Admin() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => subscribeRealtime(() => { void load() }), [])
 
   const createStaff = async () => {
     setBusy(true)

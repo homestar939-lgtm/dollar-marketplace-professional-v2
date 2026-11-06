@@ -51,7 +51,7 @@ fun B2bAdminScreen(state: B2bState) {
     val scope = rememberCoroutineScope()
     val roles = listOf("WAREHOUSE", "COLLECTOR", "ACCOUNTANT", "SUPPORT")
 
-    LaunchedEffect(refresh) {
+    LaunchedEffect(refresh, state.realtimeRefreshVersion) {
         loading = true
         runCatching { state.api.users() }.onSuccess { users = it.data }.onFailure { message = it.message }
         runCatching { state.api.agencies() }.onSuccess { agencies = it.data }

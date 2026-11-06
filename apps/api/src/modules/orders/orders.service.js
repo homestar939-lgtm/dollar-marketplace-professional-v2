@@ -4,12 +4,13 @@ import { money, add, mul, ZERO, str } from '../../lib/money.js'
 import { conflict, forbidden, notFound, unprocessable } from '../../lib/errors.js'
 import { recordAudit } from '../../utils/audit.js'
 import { nextDocumentNumber } from '../../services/numbering.js'
+import { publishRealtimeEvent } from '../../lib/realtime-hub.js'
 
 const STAFF_ROLES = ['ADMIN', 'WAREHOUSE', 'ACCOUNTANT', 'SUPPORT']
 
 /** Totals are always derived on the server from stored prices, never from the client. */
 export async function createOrder({ buyerId, items, notes, req }) {
-  return withSerializable(async (tx) => {
+  const order = await withSerializable(async (tx) => {
     const productIds = items.map((i) => i.productId)
     const products = await tx.product.findMany({ where: { id: { in: productIds } }, include: { agency: true } })
     if (products.length !== new Set(productIds).size) throw unprocessable('One or more products do not exist')
@@ -73,6 +74,13 @@ export async function createOrder({ buyerId, items, notes, req }) {
     await recordAudit(tx, { actorId: buyerId, action: 'order.create', entityType: 'Order', entityId: order.id, after: { orderNumber, total: str(subtotal) }, req })
     return order
   })
+  publishRealtimeEvent({
+    type: 'order.created',
+    data: { orderId: order.id, orderNumber: order.orderNumber },
+    userIds: [buyerId],
+    roles: ['ADMIN', 'WAREHOUSE', 'ACCOUNTANT']
+  })
+  return order
 }
 
 export async function listOrders({ viewer, status, buyerId, q, page, limit }) {

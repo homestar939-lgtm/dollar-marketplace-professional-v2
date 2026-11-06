@@ -5,6 +5,7 @@ import { conflict, notFound, unprocessable } from '../lib/errors.js'
 import { recordAudit } from '../utils/audit.js'
 import { postDebit } from './financial-ledger.js'
 import { nextInvoiceNumber } from './numbering.js'
+import { publishRealtimeEvent } from '../lib/realtime-hub.js'
 
 const LIVE_STATUSES = ['DRAFT', 'SENT', 'APPROVED', 'PARTIALLY_PAID', 'PAID']
 
@@ -125,7 +126,7 @@ export async function sendInvoice({ invoiceId, actorId, req = null }) {
 
 /** Approval posts the DEBIT that creates the buyer's liability — exactly once. */
 export async function approveInvoice({ invoiceId, actorId, req = null }) {
-  return withSerializable(async (tx) => {
+  const result = await withSerializable(async (tx) => {
     const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } })
     if (!invoice) throw notFound('Invoice not found')
     if (invoice.status === 'APPROVED') throw conflict('Invoice is already approved')
@@ -156,6 +157,13 @@ export async function approveInvoice({ invoiceId, actorId, req = null }) {
     })
     return { invoice: updated, transaction: posting }
   })
+  publishRealtimeEvent({
+    type: 'invoice.approved',
+    data: { invoiceId: result.invoice.id, invoiceNumber: result.invoice.invoiceNumber },
+    userIds: [result.invoice.buyerId],
+    roles: ['ADMIN', 'ACCOUNTANT', 'WAREHOUSE']
+  })
+  return result
 }
 
 export async function rejectInvoice({ invoiceId, actorId, reason, req = null }) {
