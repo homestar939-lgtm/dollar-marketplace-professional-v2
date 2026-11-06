@@ -7,21 +7,26 @@ export default function Accountant() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [report, setReport] = useState<Awaited<ReturnType<typeof api.financialReport>> | null>(null)
+  const [collectionReport, setCollectionReport] = useState<Awaited<ReturnType<typeof api.collections>> | null>(null)
+  const [period, setPeriod] = useState<'WEEKLY' | 'MONTHLY' | 'YEARLY'>('MONTHLY')
+  const [periodDate, setPeriodDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [matching, setMatching] = useState<Record<string, unknown[]>>({})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = async () => {
     try {
-      const [invoicePage, receiptPage, financial, matchQueue] = await Promise.all([
+      const [invoicePage, receiptPage, financial, collections, matchQueue] = await Promise.all([
         api.invoices({ status: 'SENT', limit: 50 }),
         api.receipts({ status: 'SENT', limit: 50 }),
         api.financialReport(),
+        api.collections({ period, date: periodDate }),
         api.matching()
       ])
       setInvoices(invoicePage.data)
       setReceipts(receiptPage.data)
       setReport(financial)
+      setCollectionReport(collections)
       setMatching(matchQueue)
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'تعذّر تحميل البيانات')
@@ -31,7 +36,7 @@ export default function Accountant() {
   useEffect(() => {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [period, periodDate])
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true)
@@ -56,6 +61,33 @@ export default function Accountant() {
     <>
       <h1>لوحة المحاسب</h1>
       <ErrorNote message={error} />
+
+      <Card title="تحصيلات وعمولات الفترة">
+        <div className="row" style={{ alignItems: 'end', flexWrap: 'wrap', gap: 12 }}>
+          <label>
+            الفترة
+            <select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}>
+              <option value="WEEKLY">أسبوعية</option>
+              <option value="MONTHLY">شهرية</option>
+              <option value="YEARLY">سنوية</option>
+            </select>
+          </label>
+          <label>
+            تاريخ داخل الفترة
+            <input type="date" value={periodDate} onChange={(event) => setPeriodDate(event.target.value)} />
+          </label>
+        </div>
+        {collectionReport && (
+          <>
+            <p className="empty">النطاق: {collectionReport.period.from?.slice(0, 10) ?? '—'} – {collectionReport.period.to?.slice(0, 10) ?? '—'}</p>
+            <div className="stats">
+              <Stat label="إجمالي التحصيل" value={collectionReport.totals.collected} tone="green" />
+              <Stat label="إجمالي العمولات" value={collectionReport.totals.commission} />
+              <Stat label="سندات معتمدة" value={String(collectionReport.totals.receipts)} />
+            </div>
+          </>
+        )}
+      </Card>
 
       {report && (
         <div className="stats">

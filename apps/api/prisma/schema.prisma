@@ -67,6 +67,8 @@ enum InvoiceStatus {
   DRAFT
   SENT
   APPROVED
+  PARTIALLY_PAID
+  PAID
   REJECTED
   VOIDED
 }
@@ -169,6 +171,7 @@ model User {
   locale          String     @default("ar")
   // COLLECTOR only: commission share applied to approved receipts.
   commissionRate  Decimal?   @db.Decimal(7, 4)
+  debitBalance    Decimal    @default(0) @db.Decimal(18, 4)
   agencyId        String?
   agency          Agency?    @relation("AgencyStaff", fields: [agencyId], references: [id], onDelete: SetNull)
   managedAgencies Agency[]   @relation("AgencyCreator")

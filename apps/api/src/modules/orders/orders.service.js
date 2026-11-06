@@ -182,7 +182,7 @@ export async function shipOrder({ orderId, courierPhone, courierName, courierCha
     if (!order) throw notFound('Order not found')
     if (order.status === 'SHIPPED' || order.status === 'DELIVERED') throw conflict('Order has already shipped')
 
-    const invoice = order.invoices.find((i) => ['SENT', 'APPROVED'].includes(i.status))
+    const invoice = order.invoices.find((i) => ['SENT', 'APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(i.status))
     if (!invoice) throw conflict('An invoice must be created and sent before shipping')
 
     const now = new Date()
@@ -213,7 +213,7 @@ export async function cancelOrder({ orderId, viewer, req }) {
     if (!order) throw notFound('Order not found')
     if (viewer.role === 'BUYER' && order.buyerId !== viewer.id) throw forbidden('This order belongs to another buyer')
     if (order.status !== 'PENDING') throw conflict(`Only PENDING orders can be cancelled (current: ${order.status})`)
-    if (order.invoices.some((i) => i.status === 'APPROVED')) throw conflict('Order has an approved invoice and cannot be cancelled')
+    if (order.invoices.some((i) => ['APPROVED', 'PARTIALLY_PAID', 'PAID'].includes(i.status))) throw conflict('Order has an approved invoice and cannot be cancelled')
 
     const updated = await tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED' } })
     await recordAudit(tx, { actorId: viewer.id, action: 'order.cancel', entityType: 'Order', entityId: orderId, req })

@@ -110,7 +110,8 @@ export const api = {
     request<{ invoices: Record<string, { count: number; total: string }>; receipts: Record<string, { count: number; total: string }>; ledger: { debit: string; credit: string; balance: string }; outstanding: string; buyers: number }>(
       '/reports/financial'
     ),
-  collections: () => request<{ totals: { receipts: number; collected: string; commission: string } }>('/reports/collections'),
+  collections: (query?: Record<string, string | number | undefined>) =>
+    request<{ period: { type?: string; from: string | null; to: string | null }; totals: { receipts: number; collected: string; commission: string } }>('/reports/collections', { query }),
 
   users: (query?: Record<string, string | number | undefined>) =>
     request<import('./types').Paged<import('./types').User>>('/users', { query }),

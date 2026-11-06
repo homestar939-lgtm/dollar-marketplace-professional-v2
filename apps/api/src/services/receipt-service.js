@@ -9,7 +9,7 @@ import { resolveCommissionRate } from './commission-service.js'
 
 async function outstandingFor(tx, buyerId) {
   const invoices = await tx.invoice.findMany({
-    where: { buyerId, status: 'APPROVED' },
+    where: { buyerId, status: { in: ['APPROVED', 'PARTIALLY_PAID'] } },
     include: { allocations: { include: { receipt: { select: { status: true } } } } },
     orderBy: { approvedAt: 'asc' }
   })
@@ -136,10 +136,18 @@ export async function approveReceipt({ receiptId, actorId, req = null }) {
     if (receipt.status === 'APPROVED') throw conflict('Receipt is already approved')
     if (receipt.status !== 'SENT') throw conflict(`Only SENT receipts can be approved (current: ${receipt.status})`)
 
-    const plan = Array.isArray(receipt.plannedAllocations) ? receipt.plannedAllocations : []
-    for (const allocation of plan) {
-      const invoice = await tx.invoice.findUnique({ where: { id: allocation.invoiceId } })
-      if (!invoice || invoice.status !== 'APPROVED') throw conflict(`Invoice ${allocation.invoiceId} is not approved`)
+    const requestedPlan = Array.isArray(receipt.plannedAllocations) ? receipt.plannedAllocations : []
+    const openInvoices = await outstandingFor(tx, receipt.buyerId)
+    const requestedIds = new Set(requestedPlan.map((allocation) => allocation.invoiceId))
+    const eligible = openInvoices.filter((invoice) => requestedIds.has(invoice.invoiceId))
+    let remaining = money(receipt.amount)
+    const plan = []
+    for (const invoice of eligible) {
+      if (remaining.lte(0)) break
+      const allocation = invoice.remaining.lt(remaining) ? invoice.remaining : remaining
+      if (allocation.lte(0)) continue
+      plan.push({ invoiceId: invoice.invoiceId, amount: str(allocation) })
+      remaining = sub(remaining, allocation)
     }
 
     // Approval-time commission snapshot: frozen forever afterwards.
@@ -160,6 +168,23 @@ export async function approveReceipt({ receiptId, actorId, req = null }) {
     for (const allocation of plan) {
       await tx.paymentAllocation.create({
         data: { receiptId: receipt.id, invoiceId: allocation.invoiceId, amount: money(allocation.amount) }
+      })
+    }
+
+    // Keep the cached buyer balance, invoice states, and ledger in one commit.
+    await tx.user.update({ where: { id: receipt.buyerId }, data: { debitBalance: { decrement: receipt.amount } } })
+    for (const allocation of plan) {
+      const invoice = await tx.invoice.findUnique({
+        where: { id: allocation.invoiceId },
+        include: { allocations: { include: { receipt: { select: { status: true } } } } }
+      })
+      if (!invoice) throw conflict(`Invoice ${allocation.invoiceId} no longer exists`)
+      const allocated = invoice.allocations
+        .filter((item) => item.receipt.status === 'APPROVED')
+        .reduce((total, item) => add(total, item.amount), ZERO)
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: { status: allocated.gte(invoice.totalAmount) ? 'PAID' : 'PARTIALLY_PAID' }
       })
     }
 

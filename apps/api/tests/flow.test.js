@@ -257,6 +257,7 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     assert.equal(approved.body.invoice.status, 'APPROVED')
     assert.equal(approved.body.transaction.amount, '340.0000')
     assert.equal(approved.body.transaction.transactionType, 'DEBIT')
+    assert.equal((await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })).debitBalance.toFixed(4), '340.0000')
 
     const again = await call(`/api/invoices/${state.invoiceId}/approve`, { method: 'POST', token: state.accountantToken })
     assert.equal(again.status, 409)
@@ -311,6 +312,8 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     assert.equal(after.body.totals.balance, '140.0000')
     assert.equal(after.body.outstanding.length, 1)
     assert.equal(after.body.outstanding[0].remaining, '140.0000', 'partial payment leaves the remainder open')
+    assert.equal((await prisma.invoice.findUnique({ where: { id: state.invoiceId } })).status, 'PARTIALLY_PAID')
+    assert.equal((await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })).debitBalance.toFixed(4), '140.0000')
   })
 
   await t.test('15 a rejected receipt must not change anything', async () => {
@@ -358,6 +361,8 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     const statement = await call('/api/accounting/me/statement', { token: state.buyerToken })
     assert.equal(statement.body.totals.balance, '0.0000')
     assert.equal(statement.body.outstanding.length, 0)
+    assert.equal((await prisma.invoice.findUnique({ where: { id: state.invoiceId } })).status, 'PAID')
+    assert.equal((await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })).debitBalance.toFixed(4), '0.0000')
   })
 
   await t.test('18 collectors see only their own receipts; buyers cannot read other buyers', async () => {
@@ -428,6 +433,13 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     const commissions = await call('/api/reports/commissions', { token: state.accountantToken })
     assert.equal(commissions.status, 200)
     assert.equal(commissions.body.totals.commission, '8.7500')
+
+    const month = new Date().toISOString().slice(0, 10)
+    const monthly = await call(`/api/reports/collections?period=MONTHLY&date=${month}`, { token: state.accountantToken })
+    assert.equal(monthly.status, 200, monthly.raw)
+    assert.equal(monthly.body.period.type, 'MONTHLY')
+    assert.equal(monthly.body.totals.collected, '350.0000')
+    assert.equal(monthly.body.totals.commission, '8.7500')
 
     const audit = await prisma.auditLog.findMany()
     const actions = audit.map((a) => a.action)
