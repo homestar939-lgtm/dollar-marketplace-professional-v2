@@ -41,7 +41,9 @@ These choices follow the current Android/Compose release guidance. AGP 9.4.0 req
 Default emulator API endpoint:
 `http://10.0.2.2:4000/api`
 
-For a physical Android device, set `BuildConfig.API_BASE_URL` to the LAN address of the API server.
+The authenticated application is the default (`DEMO_MODE=false`). For a local demo build only, opt in with `-PDEMO_MODE=true`.
+
+Release artifacts are intentionally blocked until you provide an HTTPS `API_BASE_URL`, `GOOGLE_WEB_CLIENT_ID`, `DEMO_MODE=false`, and a private signing key through Gradle properties: `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. Never commit signing credentials. For a physical Android device in development, use the computer's reachable LAN/API host rather than the emulator-only `10.0.2.2` address.
 
 ## Backend development
 
@@ -55,11 +57,13 @@ npm run dev
 
 API health: `GET /health`
 
-## Production architecture target
+## Production configuration
 
-Android App / Web → API → PostgreSQL → Redis → Search Index → Object Storage → Queue/Workers → Payment/Shipping adapters.
+The B2B API requires PostgreSQL. The production API refuses to start with demo login enabled, token exposure enabled, a weak JWT secret, wildcard CORS, or non-HTTPS CORS origins. The web production build always uses real authentication. Android release builds require a production HTTPS API endpoint, configured Google OAuth client ID, real authentication, and signing credentials.
 
-The included development database remains SQLite for frictionless local setup. The schema is intentionally relational and is ready to be migrated to PostgreSQL before production deployment.
+Do not use the development seed accounts or demo credentials in a live environment. Development seed data is never created when `NODE_ENV=production`. To create the first production administrator once, provide `SEED_ADMIN_NAME`, `SEED_ADMIN_EMAIL`, and a unique password of at least 24 characters through the deployment secret manager, then run `NODE_ENV=production npm run prisma:seed -w apps/api`. The production seed creates only that administrator and refuses to run if an administrator already exists.
+
+Before a public release, configure and verify a real email sender for account verification/password reset, the Google OAuth client, the HTTPS API/domain, a production PostgreSQL deployment, backups/monitoring, and a protected Android signing key. See [`docs/RELEASE_READINESS.md`](docs/RELEASE_READINESS.md) for current product gaps and required business decisions.
 
 ## Demo accounts
 
@@ -67,7 +71,7 @@ The included development database remains SQLite for frictionless local setup. T
 - seller@dollar.local / Seller123!
 - admin@dollar.local / Admin123!
 
-Change all credentials and JWT secrets before deployment.
+These seeded accounts are for local development only. Production seeding follows the one-time administrator flow described above.
 
 ## Build without a computer
 The repository includes `.github/workflows/ci.yml`. GitHub Actions builds the web/API and produces an Android debug APK in the cloud. The Android job uses JDK 17 and Gradle 9.6 with AGP 9.4.0. The debug API URL defaults to the Android emulator address; a different URL can be supplied with `-PAPI_BASE_URL=...`.

@@ -13,7 +13,46 @@ async function upsertUser({ email, name, role, password, status = 'ACTIVE', comm
   })
 }
 
+async function bootstrapProductionAdmin() {
+  const name = process.env.SEED_ADMIN_NAME?.trim()
+  const email = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase()
+  const password = process.env.SEED_ADMIN_PASSWORD
+
+  if (!name || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('.local')) {
+    throw new Error('Production bootstrap requires SEED_ADMIN_NAME and a real SEED_ADMIN_EMAIL')
+  }
+  if (!password || password.length < 24 || password === 'Admin@12345') {
+    throw new Error('Production bootstrap requires a unique SEED_ADMIN_PASSWORD of at least 24 characters')
+  }
+
+  const passwordHash = await bcrypt.hash(password, round)
+  const admin = await prisma.$transaction(async (tx) => {
+    const existing = await tx.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } })
+    if (existing) throw new Error('Production admin already exists; bootstrap is one-time only')
+
+    return tx.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+        locale: 'ar'
+      },
+      select: { id: true, email: true, role: true }
+    })
+  }, { isolationLevel: 'Serializable' })
+
+  console.log(JSON.stringify({ seeded: true, production: true, demoData: false, admin }, null, 2))
+}
+
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    await bootstrapProductionAdmin()
+    return
+  }
+
   const admin = await upsertUser({ email: 'admin@dollar.local', name: 'مدير المنصة', role: 'ADMIN', password: 'Admin@12345' })
   const warehouse = await upsertUser({ email: 'warehouse@dollar.local', name: 'مسؤول المخزن', role: 'WAREHOUSE', password: 'Warehouse@12345' })
   const collector = await upsertUser({ email: 'collector@dollar.local', name: 'محصل ميداني', role: 'COLLECTOR', password: 'Collector@12345', commissionRate: '0.0250' })

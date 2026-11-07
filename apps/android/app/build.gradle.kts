@@ -4,6 +4,21 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val apiBaseUrlProperty = providers.gradleProperty("API_BASE_URL")
+val apiBaseUrl = apiBaseUrlProperty.orElse("http://10.0.2.2:4000/api")
+val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orElse("")
+val demoMode = providers.gradleProperty("DEMO_MODE").orElse("false")
+
+val releaseStoreFileProperty = providers.gradleProperty("RELEASE_STORE_FILE")
+val releaseStorePasswordProperty = providers.gradleProperty("RELEASE_STORE_PASSWORD")
+val releaseKeyAliasProperty = providers.gradleProperty("RELEASE_KEY_ALIAS")
+val releaseKeyPasswordProperty = providers.gradleProperty("RELEASE_KEY_PASSWORD")
+val releaseStoreFile = releaseStoreFileProperty.orNull?.let { file(it) }
+val hasReleaseSigning = releaseStoreFile?.isFile == true &&
+    !releaseStorePasswordProperty.orNull.isNullOrBlank() &&
+    !releaseKeyAliasProperty.orNull.isNullOrBlank() &&
+    !releaseKeyPasswordProperty.orNull.isNullOrBlank()
+
 android {
     namespace = "com.dollar.marketplace"
     compileSdk = 37
@@ -14,24 +29,58 @@ android {
         versionCode = 1
         versionName = "1.0.0"
     }
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("production") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePasswordProperty.orNull
+                keyAlias = releaseKeyAliasProperty.orNull
+                keyPassword = releaseKeyPasswordProperty.orNull
+            }
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("production")
         }
     }
     buildFeatures {
         compose = true
         buildConfig = true
     }
-    val apiBaseUrl = providers.gradleProperty("API_BASE_URL").orElse("http://10.0.2.2:4000/api")
-    val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orElse("")
-    // النسخة التجريبية افتراضية؛ لتعطيلها: -PDEMO_MODE=false
-    val demoMode = providers.gradleProperty("DEMO_MODE").orElse("true")
     buildTypes.configureEach {
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleWebClientId.get()}\"")
         buildConfigField("Boolean", "DEMO_MODE", demoMode.get())
+    }
+}
+
+val verifyProductionReleaseConfig = tasks.register("verifyProductionReleaseConfig") {
+    group = "verification"
+    description = "Rejects release artifacts that lack production endpoints, Google Sign-In, or signing credentials."
+    doLast {
+        val problems = mutableListOf<String>()
+        val productionApi = apiBaseUrlProperty.orNull?.trim()
+        if (productionApi.isNullOrBlank() || !productionApi.startsWith("https://")) {
+            problems += "Set -PAPI_BASE_URL to the production HTTPS API base URL"
+        }
+        if (googleWebClientId.get().isBlank()) {
+            problems += "Set -PGOOGLE_WEB_CLIENT_ID to the production Google OAuth Web client ID"
+        }
+        if (demoMode.get() != "false") problems += "Set -PDEMO_MODE=false for release builds"
+        if (!hasReleaseSigning) {
+            problems += "Provide RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD"
+        }
+        if (problems.isNotEmpty()) throw GradleException("Production release blocked: ${problems.joinToString("; ")}")
+    }
+}
+
+tasks.configureEach {
+    if (name.contains("Release") &&
+        (name.startsWith("assemble") || name.startsWith("bundle") || name.startsWith("package"))) {
+        dependsOn(verifyProductionReleaseConfig)
     }
 }
 

@@ -11,9 +11,8 @@ import Admin from './screens/Admin'
 import { Button } from './components/ui'
 import { connectRealtime, subscribeRealtimeStatus } from './v3/realtime'
 
-// النسخة التجريبية افتراضية: قائمة الأدوار بدل تسجيل الدخول.
-// لتعطيلها صراحةً: VITE_DEMO_MODE=false
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE !== 'false'
+// Demo role switching is a development-only convenience; production always uses real auth.
+const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE !== 'false'
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'المدير', WAREHOUSE: 'المخزن', COLLECTOR: 'المحصل', ACCOUNTANT: 'المحاسب', BUYER: 'المشتري', SELLER: 'البائع', SUPPORT: 'الدعم'
