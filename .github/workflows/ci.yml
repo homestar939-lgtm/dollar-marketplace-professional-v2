@@ -48,5 +48,4 @@ jobs:
         working-directory: apps/api
         run: node prisma/seed.js
       - name: Run end-to-end tests
-        working-directory: apps/api
-        run: node --test tests/
+        run: npm test -w apps/api
