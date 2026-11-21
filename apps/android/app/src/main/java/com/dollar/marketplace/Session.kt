@@ -210,24 +210,14 @@ class AppState(private val appContext: Context) {
 
     /* ------------------------------- جلسة ------------------------------- */
 
-    fun login(email: String, password: String, onDone: () -> Unit = {}) = scope.launch {
-        val res = loading { api.login(email.trim(), password) } ?: return@launch
+    fun login(username: String, password: String, onDone: () -> Unit = {}) = scope.launch {
+        val res = loading { api.login(username.trim(), password) } ?: return@launch
         token = res.token
         user = res.user
         persistSession(res.token, res.user)
         notice("مرحباً ${res.user.name} 👋")
         loadCart()
         loadFavorites()
-        onDone()
-    }
-
-    fun register(name: String, email: String, password: String, role: String, onDone: () -> Unit = {}) = scope.launch {
-        val res = loading { api.register(email.trim(), password, name.trim(), role) } ?: return@launch
-        token = res.token
-        user = res.user
-        persistSession(res.token, res.user)
-        notice("تم إنشاء الحساب بنجاح")
-        loadCart()
         onDone()
     }
 

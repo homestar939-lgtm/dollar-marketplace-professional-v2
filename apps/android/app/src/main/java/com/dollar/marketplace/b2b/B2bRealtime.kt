@@ -15,7 +15,7 @@ import java.net.URLEncoder
 
 /** Ktor Server-Sent Events connection for the authenticated B2B session. */
 class B2bRealtime(
-    private val apiBaseUrl: String,
+    private val apiBaseUrlProvider: () -> String,
     private val tokenProvider: () -> String?
 ) {
     var connected by mutableStateOf(false)
@@ -25,8 +25,12 @@ class B2bRealtime(
 
     /** Keeps the stream alive, retries interrupted connections, and forwards named events. */
     suspend fun collect(onEvent: (String) -> Unit) {
-        val base = apiBaseUrl.trimEnd('/')
         while (currentCoroutineContext().isActive) {
+            val base = apiBaseUrlProvider().trimEnd('/')
+            if (base.isBlank()) {
+                connected = false
+                return
+            }
             val token = tokenProvider()?.takeIf { it.isNotBlank() }
             if (token == null) {
                 connected = false

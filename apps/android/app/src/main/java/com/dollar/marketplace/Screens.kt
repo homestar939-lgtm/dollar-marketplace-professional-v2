@@ -864,7 +864,7 @@ fun AccountScreen() {
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(app.user?.email ?: "", color = Pal.Muted, fontSize = 11.sp)
+                        Text("@${app.user?.username ?: ""}", color = Pal.Muted, fontSize = 11.sp)
                         Spacer(Modifier.height(4.dp))
                         StatusPill(
                             status = when (app.user?.role) {
@@ -1005,7 +1005,7 @@ fun AccountScreen() {
                             Spacer(Modifier.height(8.dp))
                             KeyValueRow(key = "الجلسة", value = if (app.isLoggedIn) "نشطة" else "غير مسجّل", valueColor = Pal.Success)
                             KeyValueRow(key = "الخادم", value = BuildConfig.API_BASE_URL)
-                            KeyValueRow(key = "البريد", value = app.user?.email ?: "-")
+                            KeyValueRow(key = "اسم المستخدم", value = app.user?.username ?: "-")
                         }
                     }
                 }
@@ -1068,93 +1068,24 @@ fun OrderCard(order: Order) {
 @Composable
 fun AuthPanel() {
     val app = dollarApp()
-    var isRegister by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf("BUYER") }
 
     GoldCard {
         Column(Modifier.padding(16.dp)) {
-            Text(
-                if (isRegister) "إنشاء حساب جديد" else "تسجيل الدخول",
-                color = Pal.Gold,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black
-            )
+            Text("تسجيل الدخول", color = Pal.Gold, fontSize = 18.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(12.dp))
-            if (isRegister) {
-                DollarField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = "الاسم الكامل",
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(10.dp))
-            }
-            DollarField(
-                value = email,
-                onValueChange = { email = it },
-                label = "البريد الإلكتروني",
-                modifier = Modifier.fillMaxWidth()
-            )
+            DollarField(value = username, onValueChange = { username = it }, label = "اسم المستخدم", modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
-            DollarField(
-                value = password,
-                onValueChange = { password = it },
-                label = "كلمة المرور",
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (isRegister) {
-                Spacer(Modifier.height(12.dp))
-                Text("نوع الحساب", color = Pal.Muted, fontSize = 12.sp)
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DollarChip("مشتري", role == "BUYER") { role = "BUYER" }
-                    DollarChip("بائع", role == "SELLER") { role = "SELLER" }
-                }
-            }
+            DollarField(value = password, onValueChange = { password = it }, label = "كلمة المرور", modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(16.dp))
             GoldButton(
-                text = if (isRegister) "إنشاء الحساب" else "دخول",
+                text = "دخول",
                 icon = Icons.Default.CheckCircle,
                 loading = app.busy,
-                enabled = email.isNotBlank() && password.length >= 6,
+                enabled = username.isNotBlank() && password.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    if (isRegister) {
-                        app.register(name, email, password, role)
-                    } else {
-                        app.login(email, password)
-                    }
-                }
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                if (isRegister) "لدي حساب بالفعل — تسجيل الدخول" else "ليس لدي حساب — إنشاء حساب",
-                color = Pal.Gold,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(6.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-            TextButton(
-                onClick = { isRegister = !isRegister }
-            ) {
-                Text(
-                    if (isRegister) "التبديل إلى تسجيل الدخول" else "التبديل إلى إنشاء حساب",
-                    color = Pal.Gold,
-                    fontSize = 12.sp
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "حسابات تجريبية: buyer@dollar.local / Buyer123!  •  seller@dollar.local / Seller123!",
-                color = Pal.Muted,
-                fontSize = 10.sp,
-                lineHeight = 15.sp
+                onClick = { app.login(username.trim(), password) }
             )
         }
     }

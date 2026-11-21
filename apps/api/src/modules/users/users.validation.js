@@ -12,9 +12,9 @@ export const listUsersSchema = z.object({
 
 export const createStaffSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8).max(128),
-  role: z.enum(['WAREHOUSE', 'COLLECTOR', 'ACCOUNTANT', 'SUPPORT']),
+  username: z.string().trim().min(3).max(40).regex(/^[a-zA-Z0-9_.-]+$/),
+  password: z.string().min(12).max(128),
+  role: z.enum(['ADMIN', 'WAREHOUSE', 'COLLECTOR', 'ACCOUNTANT', 'BUYER']),
   phone: z.string().trim().max(32).optional(),
   commissionRate: z.coerce.number().min(0).max(1).optional(),
   agencyId: z.string().optional()

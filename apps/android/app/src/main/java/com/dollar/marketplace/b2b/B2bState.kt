@@ -49,8 +49,13 @@ class B2bState(context: Context) {
 
     val cart = mutableStateListOf<B2bCartLine>()
 
-    val api = B2bApi { token }
-    val realtime = B2bRealtime(BuildConfig.API_BASE_URL) { token }
+    var serverUrl by mutableStateOf(prefs.getString(KEY_SERVER_URL, BuildConfig.API_BASE_URL).orEmpty())
+        private set
+    var serverSettingsOpen by mutableStateOf(false)
+        private set
+
+    val api = B2bApi(tokenProvider = { token }, apiBaseUrlProvider = { serverUrl })
+    val realtime = B2bRealtime({ serverUrl }) { token }
     var realtimeRefreshVersion by mutableIntStateOf(0)
         private set
     private var realtimeJob: Job? = null
@@ -72,6 +77,34 @@ class B2bState(context: Context) {
 
     fun clearError() {
         error = null
+    }
+
+    fun saveServerUrl(value: String) {
+        val normalized = value.trim().trimEnd('/')
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+            error = "أدخل عنواناً كاملاً يبدأ بـ http:// أو https://"
+            return
+        }
+        if (normalized.contains("localhost") || normalized.contains("127.0.0.1")) {
+            error = "أدخل عنوان IP الخاص بالخادم على شبكة Wi-Fi، وليس localhost"
+            return
+        }
+        serverUrl = normalized
+        prefs.edit().putString(KEY_SERVER_URL, normalized).apply()
+        serverSettingsOpen = false
+        error = null
+        if (token?.isNotBlank() == true) {
+            stopRealtime()
+            startRealtime()
+        }
+    }
+
+    fun openServerSettings() {
+        serverSettingsOpen = true
+    }
+
+    fun closeServerSettings() {
+        if (serverUrl.isNotBlank()) serverSettingsOpen = false
     }
 
     /** إتمام شاشات الترحيب: تُحفظ العلامة ثم يُنتقل للدخول. */
@@ -107,47 +140,15 @@ class B2bState(context: Context) {
         error = null
     }
 
-    fun login(email: String, password: String) {
+    fun login(username: String, password: String) {
         scope.launch {
             busy = true
             error = null
             try {
-                val result = api.login(email.trim(), password)
+                val result = api.login(username.trim(), password)
                 persist(result.accessToken, result.user)
             } catch (e: Exception) {
                 error = e.message ?: "تعذّر تسجيل الدخول"
-            } finally {
-                busy = false
-            }
-        }
-    }
-
-    /** الدخول عبر Google: يُرسَل idToken إلى الخادم ليتحقق منه بنفسه. */
-    fun loginWithGoogle(idToken: String) {
-        scope.launch {
-            busy = true
-            error = null
-            try {
-                val result = api.google(idToken)
-                persist(result.accessToken, result.user)
-            } catch (e: Exception) {
-                error = e.message ?: "تعذّر الدخول عبر Google"
-            } finally {
-                busy = false
-            }
-        }
-    }
-
-    fun register(name: String, email: String, password: String) {
-        scope.launch {
-            busy = true
-            error = null
-            try {
-                api.register(name.trim(), email.trim(), password)
-                error = null
-                info = "تم إنشاء الحساب. تحقق من بريدك لتفعيله قبل الدخول."
-            } catch (e: Exception) {
-                error = e.message ?: "تعذّر إنشاء الحساب"
             } finally {
                 busy = false
             }
@@ -200,5 +201,6 @@ class B2bState(context: Context) {
     private companion object {
         const val KEY_ONBOARDING = "onboarding_seen_v1"
         const val KEY_TOKEN = "session_token"
+        const val KEY_SERVER_URL = "lan_server_url"
     }
 }

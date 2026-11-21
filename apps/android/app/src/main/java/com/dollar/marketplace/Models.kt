@@ -137,7 +137,7 @@ data class Facets(
 @Serializable
 data class AuthUser(
     val id: String = "",
-    val email: String = "",
+    val username: String = "",
     val name: String = "",
     val role: String = "BUYER"
 ) {
@@ -149,10 +149,7 @@ data class AuthUser(
 data class AuthResult(val token: String = "", val user: AuthUser = AuthUser())
 
 @Serializable
-data class LoginBody(val email: String, val password: String)
-
-@Serializable
-data class RegisterBody(val email: String, val password: String, val name: String, val role: String)
+data class LoginBody(val username: String, val password: String)
 
 @Serializable
 data class ErrorBody(val error: String? = null)

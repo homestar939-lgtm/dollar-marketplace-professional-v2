@@ -15,17 +15,13 @@ import { accountingRouter } from './modules/accounting/accounting.routes.js'
 import { reportsRouter } from './modules/reports/reports.routes.js'
 import { settingsRouter } from './modules/settings/settings.routes.js'
 import { notificationsRouter } from './modules/notifications/notifications.routes.js'
-// ✅ V3: وحدات جديدة (إضافة فقط — لا تعديل على الوحدات القائمة)
-import { phoneAuthRouter } from './modules-v3/phone-auth/phone-auth.routes.js'
 import { deliveryRouter } from './modules-v3/delivery/delivery.routes.js'
 import { auditV3Router } from './modules-v3/audit-v3/audit-v3.routes.js'
-import { demoAuthRouter } from './modules-v3/demo-auth/demo-auth.routes.js'
 import { realtimeRouter } from './modules-v3/realtime/realtime.routes.js'
 
-export function createApp({ googleVerifier } = {}) {
+export function createApp() {
   const app = express()
   app.set('trust proxy', true)
-  app.locals.googleVerifier = googleVerifier
 
   app.use(cors({ origin: env.corsOrigins === '*' ? true : env.corsOrigins, credentials: true }))
   app.use(express.json({ limit: '1mb' }))
@@ -53,10 +49,8 @@ export function createApp({ googleVerifier } = {}) {
   app.use('/api/notifications', notificationsRouter)
 
   // ✅ V3: مسارات جديدة تُضاف بعد المسارات القائمة
-  app.use('/api/v3/auth/phone', phoneAuthRouter)
   app.use('/api/v3', deliveryRouter)
   app.use('/api/v3', auditV3Router)
-  app.use('/api/v3', demoAuthRouter)
   app.use('/api/v3', realtimeRouter)
 
   app.use(notFoundHandler)

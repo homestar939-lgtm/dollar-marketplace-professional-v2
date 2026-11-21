@@ -2,89 +2,71 @@ import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
-const round = Number(process.env.BCRYPT_ROUNDS || 10)
+const round = Number(process.env.BCRYPT_ROUNDS || 12)
+const accounts = [
+  { username: 'admin', name: 'مدير المنصة', role: 'ADMIN', passwordEnv: 'SEED_ADMIN_PASSWORD' },
+  { username: 'warehouse', name: 'مسؤول المخزن', role: 'WAREHOUSE', passwordEnv: 'SEED_WAREHOUSE_PASSWORD' },
+  { username: 'collector', name: 'محصل ميداني', role: 'COLLECTOR', passwordEnv: 'SEED_COLLECTOR_PASSWORD', commissionRate: '0.0250' },
+  { username: 'accountant', name: 'المحاسب', role: 'ACCOUNTANT', passwordEnv: 'SEED_ACCOUNTANT_PASSWORD' },
+  { username: 'buyer', name: 'مؤسسة النور التجارية', role: 'BUYER', passwordEnv: 'SEED_BUYER_PASSWORD' }
+]
 
-async function upsertUser({ email, name, role, password, status = 'ACTIVE', commissionRate = null }) {
-  const passwordHash = await bcrypt.hash(password, round)
-  return prisma.user.upsert({
-    where: { email },
-    create: { email, name, role, status, passwordHash, emailVerifiedAt: status === 'ACTIVE' ? new Date() : null, commissionRate, locale: 'ar' },
-    update: { role, status, passwordHash, commissionRate }
+function readPasswords(minimum) {
+  return accounts.map((account) => {
+    const password = process.env[account.passwordEnv]
+    if (!password || password.length < minimum) {
+      throw new Error(`${account.passwordEnv} must be set to a unique password of at least ${minimum} characters`)
+    }
+    return { ...account, password }
   })
 }
 
-async function bootstrapProductionAdmin() {
-  const name = process.env.SEED_ADMIN_NAME?.trim()
-  const email = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase()
-  const password = process.env.SEED_ADMIN_PASSWORD
-
-  if (!name || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith('.local')) {
-    throw new Error('Production bootstrap requires SEED_ADMIN_NAME and a real SEED_ADMIN_EMAIL')
-  }
-  if (!password || password.length < 24 || password === 'Admin@12345') {
-    throw new Error('Production bootstrap requires a unique SEED_ADMIN_PASSWORD of at least 24 characters')
-  }
-
-  const passwordHash = await bcrypt.hash(password, round)
-  const admin = await prisma.$transaction(async (tx) => {
-    const existing = await tx.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } })
-    if (existing) throw new Error('Production admin already exists; bootstrap is one-time only')
-
-    return tx.user.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        role: 'ADMIN',
-        status: 'ACTIVE',
-        emailVerifiedAt: new Date(),
-        locale: 'ar'
-      },
-      select: { id: true, email: true, role: true }
+async function seedAccounts(passwords, production) {
+  const created = {}
+  for (const account of passwords) {
+    const passwordHash = await bcrypt.hash(account.password, round)
+    const { password: _secret, passwordEnv: _env, ...safe } = account
+    const user = await prisma.user.upsert({
+      where: { username: account.username },
+      create: { ...safe, passwordHash, status: 'ACTIVE', locale: 'ar' },
+      update: production ? {} : { name: account.name, role: account.role, passwordHash, status: 'ACTIVE', commissionRate: account.commissionRate ?? null }
     })
-  }, { isolationLevel: 'Serializable' })
-
-  console.log(JSON.stringify({ seeded: true, production: true, demoData: false, admin }, null, 2))
+    created[account.role.toLowerCase()] = { id: user.id, username: user.username, role: user.role }
+  }
+  return created
 }
 
 async function main() {
-  if (process.env.NODE_ENV === 'production') {
-    await bootstrapProductionAdmin()
+  const production = process.env.NODE_ENV === 'production'
+  const seededUsers = await seedAccounts(readPasswords(production ? 24 : 20), production)
+  if (production) {
+    console.log(JSON.stringify({ seeded: true, production: true, usernames: Object.values(seededUsers) }, null, 2))
     return
   }
 
-  const admin = await upsertUser({ email: 'admin@dollar.local', name: 'مدير المنصة', role: 'ADMIN', password: 'Admin@12345' })
-  const warehouse = await upsertUser({ email: 'warehouse@dollar.local', name: 'مسؤول المخزن', role: 'WAREHOUSE', password: 'Warehouse@12345' })
-  const collector = await upsertUser({ email: 'collector@dollar.local', name: 'محصل ميداني', role: 'COLLECTOR', password: 'Collector@12345', commissionRate: '0.0250' })
-  const accountant = await upsertUser({ email: 'accountant@dollar.local', name: 'المحاسب', role: 'ACCOUNTANT', password: 'Accountant@12345' })
-  const buyer = await upsertUser({ email: 'buyer@dollar.local', name: 'مؤسسة النور التجارية', role: 'BUYER', password: 'Buyer@12345' })
-
+  const admin = await prisma.user.findUnique({ where: { username: 'admin' } })
+  const warehouse = await prisma.user.findUnique({ where: { username: 'warehouse' } })
+  const collector = await prisma.user.findUnique({ where: { username: 'collector' } })
   await prisma.systemSettings.upsert({
     where: { id: 'default' },
     create: {
-      id: 'default',
-      companyName: 'دولار للتجارة',
-      companyNameEn: 'Dollar Trading',
-      defaultCurrency: 'USD',
-      paymentTerms: 30,
+      id: 'default', companyName: 'دولار للتجارة', companyNameEn: 'Dollar Trading',
+      defaultCurrency: 'USD', paymentTerms: 30,
       collectorCommissionRates: { [collector.id]: '0.0250' },
       productDisplaySettings: { showExpiry: true, showCountry: true, showDescription: true, showImages: true, showSpecs: true }
     },
     update: {}
   })
-
   const agency = await prisma.agency.upsert({
     where: { slug: 'al-noor-agency' },
     create: { name: 'وكالة النور', nameEn: 'Al Noor Agency', slug: 'al-noor-agency', description: 'وكالة مواد غذائية بالجملة', createdById: admin.id, status: 'ACTIVE' },
     update: {}
   })
-
   const products = [
     { sku: 'RICE-25KG', name: 'أرز بسمتي 25 كجم', price: '42.5000', unit: 'bag', minimumOrderQuantity: 5, stockQuantity: 400, countryOfOrigin: 'IN' },
     { sku: 'OIL-18L', name: 'زيت نباتي 18 لتر', price: '31.7500', unit: 'tin', minimumOrderQuantity: 10, stockQuantity: 250, countryOfOrigin: 'TR' },
     { sku: 'SUGAR-50KG', name: 'سكر أبيض 50 كجم', price: '58.0000', unit: 'bag', minimumOrderQuantity: 3, stockQuantity: 120, countryOfOrigin: 'BR' }
   ]
-
   for (const product of products) {
     await prisma.product.upsert({
       where: { agencyId_sku: { agencyId: agency.id, sku: product.sku } },
@@ -92,15 +74,7 @@ async function main() {
       update: { price: product.price, status: 'ACTIVE' }
     })
   }
-
-  console.log(JSON.stringify({
-    seeded: true,
-    users: { admin: admin.email, warehouse: warehouse.email, collector: collector.email, accountant: accountant.email, buyer: buyer.email },
-    agency: agency.name,
-    products: products.length
-  }, null, 2))
+  console.log(JSON.stringify({ seeded: true, demoMode: false, users: Object.values(seededUsers), agency: agency.name, products: products.length }, null, 2))
 }
 
-main()
-  .catch((error) => { console.error(error); process.exitCode = 1 })
-  .finally(() => prisma.$disconnect())
+main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(() => prisma.$disconnect())

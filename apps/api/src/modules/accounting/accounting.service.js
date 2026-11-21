@@ -6,14 +6,14 @@ import { notFound } from '../../lib/errors.js'
 export async function listBuyersWithBalances({ q, onlyWithBalance, page, limit }) {
   const where = {
     role: 'BUYER',
-    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }] } : {})
+    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { username: { contains: q, mode: 'insensitive' } }] } : {})
   }
   const buyers = await prisma.user.findMany({
     where,
     orderBy: { name: 'asc' },
     skip: (page - 1) * limit,
     take: limit,
-    select: { id: true, name: true, email: true, phone: true, status: true, createdAt: true }
+    select: { id: true, name: true, username: true, phone: true, status: true, createdAt: true }
   })
 
   const rows = await Promise.all(
@@ -36,7 +36,7 @@ export async function listBuyersWithBalances({ q, onlyWithBalance, page, limit }
 }
 
 export async function buyerStatement({ buyerId, from, to, currency }) {
-  const buyer = await prisma.user.findUnique({ where: { id: buyerId }, select: { id: true, name: true, email: true } })
+  const buyer = await prisma.user.findUnique({ where: { id: buyerId }, select: { id: true, name: true, username: true } })
   if (!buyer) throw notFound('Buyer not found')
 
   const [totals, entries, invoices, receipts] = await Promise.all([

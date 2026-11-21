@@ -1,4 +1,4 @@
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000/api'
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? `http://${window.location.hostname}:4000/api`
 const TOKEN_KEY = 'dollar_token'
 
 export const tokenStore = {
@@ -53,13 +53,8 @@ export async function request<T>(path: string, { method = 'GET', body, query }: 
 }
 
 export const api = {
-  login: (email: string, password: string) =>
-    request<{ user: import('./types').User; accessToken: string }>('/auth/login', { method: 'POST', body: { email, password } }),
-  register: (name: string, email: string, password: string) =>
-    request<{ user: import('./types').User; verification: { sentTo: string; token?: string } }>('/auth/register', {
-      method: 'POST',
-      body: { name, email, password }
-    }),
+  login: (username: string, password: string) =>
+    request<{ user: import('./types').User; accessToken: string }>('/auth/login', { method: 'POST', body: { username, password } }),
   me: () => request<{ user: import('./types').User }>('/auth/me'),
   logout: () => request('/auth/logout', { method: 'POST' }),
 
@@ -115,9 +110,9 @@ export const api = {
 
   users: (query?: Record<string, string | number | undefined>) =>
     request<import('./types').Paged<import('./types').User>>('/users', { query }),
-  createUser: (body: { name: string; username: string; email?: string; password: string; role: import('./types').Role }) =>
-    request<{ user: import('./types').User }>('/v3/users', { method: 'POST', body }),
-  createStaff: (body: { name: string; email: string; password: string; role: string; commissionRate?: number }) =>
+  createUser: (body: { name: string; username: string; password: string; role: import('./types').Role }) =>
+    request<{ user: import('./types').User }>('/users', { method: 'POST', body }),
+  createStaff: (body: { name: string; username: string; password: string; role: string; commissionRate?: number }) =>
     request<{ user: import('./types').User }>('/users', { method: 'POST', body }),
   settings: () => request<{ settings: Record<string, unknown> }>('/settings'),
   updateSettings: (body: Record<string, unknown>) =>

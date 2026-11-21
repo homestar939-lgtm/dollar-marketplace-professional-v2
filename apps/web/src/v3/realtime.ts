@@ -8,7 +8,7 @@ export interface RealtimeEvent {
 type EventListener = (event: RealtimeEvent) => void
 type StatusListener = (connected: boolean) => void
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000/api'
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? `http://${window.location.hostname}:4000/api`
 const EVENT_TYPES: RealtimeEventType[] = ['order.created', 'invoice.approved', 'receipt.confirmed']
 const eventListeners = new Set<EventListener>()
 const statusListeners = new Set<StatusListener>()

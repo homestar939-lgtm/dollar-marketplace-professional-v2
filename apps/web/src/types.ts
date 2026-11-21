@@ -3,7 +3,7 @@ export type Role = 'ADMIN' | 'WAREHOUSE' | 'COLLECTOR' | 'ACCOUNTANT' | 'BUYER' 
 export interface User {
   id: string
   name: string
-  email: string
+  username: string
   role: Role
   status: 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'DISABLED'
   commissionRate?: string | null
@@ -61,7 +61,7 @@ export interface Order {
   shippedAt?: string | null
   courierPhone?: string | null
   courierName?: string | null
-  buyer?: { id: string; name: string; email: string }
+  buyer?: { id: string; name: string; username: string }
   items: OrderItem[]
   invoices?: { id: string; invoiceNumber: string; status: string }[]
 }
@@ -107,7 +107,7 @@ export interface StatementLine {
 }
 
 export interface Statement {
-  buyer: { id: string; name: string; email: string }
+  buyer: { id: string; name: string; username: string }
   totals: { debit: string; credit: string; balance: string }
   outstanding: { invoiceId: string; invoiceNumber: string; total: string; allocated: string; remaining: string }[]
   statement: StatementLine[]
@@ -123,7 +123,7 @@ export interface Paged<T> {
 export interface BuyerRow {
   id: string
   name: string
-  email: string
+  username: string
   phone?: string | null
   debit: string
   credit: string

@@ -32,7 +32,7 @@ import com.dollar.marketplace.Pal
 import kotlinx.coroutines.launch
 
 /**
- * لوحة المدير: منح الأدوار (المشتري الوحيد الذي يسجّل نفسه)، إنشاء الوكالات،
+ * لوحة المدير: منح الأدوار، إنشاء الوكالات،
  * ومتابعة المستخدمين. إنشاء الحساب هنا هو الطريق الوحيد لمنح دور موظف.
  */
 @Composable
@@ -40,7 +40,7 @@ fun B2bAdminScreen(state: B2bState) {
     var users by remember { mutableStateOf<List<B2bUser>>(emptyList()) }
     var agencies by remember { mutableStateOf<List<B2bAgency>>(emptyList()) }
     var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var roleIndex by remember { mutableIntStateOf(0) }
     var agencyName by remember { mutableStateOf("") }
@@ -49,7 +49,7 @@ fun B2bAdminScreen(state: B2bState) {
     var loading by remember { mutableStateOf(true) }
     var refresh by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    val roles = listOf("WAREHOUSE", "COLLECTOR", "ACCOUNTANT", "SUPPORT")
+    val roles = listOf("ADMIN", "WAREHOUSE", "COLLECTOR", "ACCOUNTANT", "BUYER")
 
     LaunchedEffect(refresh, state.realtimeRefreshVersion) {
         loading = true
@@ -73,7 +73,7 @@ fun B2bAdminScreen(state: B2bState) {
 
         B2bCard(title = "إنشاء حساب موظف") {
             field("الاسم", name) { name = it }
-            field("البريد الإلكتروني", email) { email = it }
+            field("اسم المستخدم", username) { username = it }
             field("كلمة المرور المؤقتة", password) { password = it }
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -90,29 +90,29 @@ fun B2bAdminScreen(state: B2bState) {
             Spacer(Modifier.height(8.dp))
             B2bPrimaryButton(
                 text = "إنشاء الحساب",
-                enabled = !state.busy && name.isNotBlank() && email.isNotBlank() && password.length >= 8
+                enabled = !state.busy && name.isNotBlank() && username.isNotBlank() && password.length >= 12
             ) {
                 scope.launch {
                     runCatching {
                         state.api.createUser(
                             B2bCreateUserBody(
                                 name = name.trim(),
-                                email = email.trim(),
+                                username = username.trim(),
                                 password = password,
                                 role = roles[roleIndex]
                             )
                         )
                     }
                         .onSuccess {
-                            message = "أُنشئ حساب ${it.user.email} بدور ${it.user.role}"
-                            name = ""; email = ""; password = ""
+                            message = "أُنشئ حساب ${it.user.username} بدور ${it.user.role}"
+                            name = ""; username = ""; password = ""
                             refresh += 1
                         }
                         .onFailure { message = it.message }
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Text("التسجيل الذاتي لا يمنح إلا دور مشترٍ؛ أدوار الموظفين تُمنح من هنا فقط.", color = Pal.Muted, fontSize = 11.sp)
+            Text("الحسابات تُنشأ من الإدارة، ثم يستخدم صاحب الحساب اسم المستخدم وكلمة المرور.", color = Pal.Muted, fontSize = 11.sp)
         }
 
         B2bCard(title = "إنشاء وكالة") {
@@ -145,7 +145,7 @@ fun B2bAdminScreen(state: B2bState) {
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(user.name, color = Pal.Text, fontSize = 13.sp)
-                        Text("${user.email} · ${user.role}", color = Pal.Muted, fontSize = 11.sp)
+                        Text("${user.username} · ${user.role}", color = Pal.Muted, fontSize = 11.sp)
                     }
                     B2bStatus(user.status)
                 }

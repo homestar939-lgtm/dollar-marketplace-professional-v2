@@ -38,12 +38,7 @@ A production-oriented foundation for a serious multi-vendor marketplace supporti
 
 These choices follow the current Android/Compose release guidance. AGP 9.4.0 requires Gradle 9.6.0 and JDK 17; Compose BOM 2026.08.00 is the stable August 2026 BOM and targets API 37.
 
-Default emulator API endpoint:
-`http://10.0.2.2:4000/api`
-
-The authenticated application is the default (`DEMO_MODE=false`). For a local demo build only, opt in with `-PDEMO_MODE=true`.
-
-Release artifacts are intentionally blocked until you provide an HTTPS `API_BASE_URL`, `GOOGLE_WEB_CLIENT_ID`, `DEMO_MODE=false`, and a private signing key through Gradle properties: `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. Never commit signing credentials. For a physical Android device in development, use the computer's reachable LAN/API host rather than the emulator-only `10.0.2.2` address.
+Android uses username/password authentication only. Configure the company's LAN API address in Server Settings (for example `http://192.168.1.50:4000/api`). The same saved address is used for API requests and SSE Live Sync. HTTP is intended only for the isolated company LAN.
 
 ## Backend development
 
@@ -59,19 +54,11 @@ API health: `GET /health`
 
 ## Production configuration
 
-The B2B API requires PostgreSQL. The production API refuses to start with demo login enabled, token exposure enabled, a weak JWT secret, wildcard CORS, or non-HTTPS CORS origins. The web production build always uses real authentication. Android release builds require a production HTTPS API endpoint, configured Google OAuth client ID, real authentication, and signing credentials.
+The B2B API requires PostgreSQL and exposes username/password authentication only. Email verification/reset, Google OAuth, phone OTP and demo role selection are removed. Production requires a strong JWT secret and explicit browser CORS origins; exact `http://` origins are supported for the isolated LAN deployment. Android release builds use the in-app LAN server setting and a signed APK.
 
-Do not use the development seed accounts or demo credentials in a live environment. Development seed data is never created when `NODE_ENV=production`. To create the first production administrator once, provide `SEED_ADMIN_NAME`, `SEED_ADMIN_EMAIL`, and a unique password of at least 24 characters through the deployment secret manager, then run `NODE_ENV=production npm run prisma:seed -w apps/api`. The production seed creates only that administrator and refuses to run if an administrator already exists.
+Before running the seed, set five different random passwords in the deployment secret store: `SEED_ADMIN_PASSWORD`, `SEED_WAREHOUSE_PASSWORD`, `SEED_COLLECTOR_PASSWORD`, `SEED_ACCOUNTANT_PASSWORD`, and `SEED_BUYER_PASSWORD`. Passwords are not stored in this repository or printed by the seed. Change them after first login.
 
-Before a public release, configure and verify a real email sender for account verification/password reset, the Google OAuth client, the HTTPS API/domain, a production PostgreSQL deployment, backups/monitoring, and a protected Android signing key. See [`docs/RELEASE_READINESS.md`](docs/RELEASE_READINESS.md) for current product gaps and required business decisions.
-
-## Demo accounts
-
-- buyer@dollar.local / Buyer123!
-- seller@dollar.local / Seller123!
-- admin@dollar.local / Admin123!
-
-These seeded accounts are for local development only. Production seeding follows the one-time administrator flow described above.
+For LAN rollout, configure PostgreSQL, backups/monitoring, the LAN IP and firewall, explicit Web CORS origin(s), the five seed passwords, and a protected Android signing key. See [`docs/RELEASE_READINESS.md`](docs/RELEASE_READINESS.md) for remaining operational/product checks.
 
 ## Build without a computer
 The repository includes `.github/workflows/ci.yml`. GitHub Actions builds the web/API and produces an Android debug APK in the cloud. The Android job uses JDK 17 and Gradle 9.6 with AGP 9.4.0. The debug API URL defaults to the Android emulator address; a different URL can be supplied with `-PAPI_BASE_URL=...`.
@@ -103,26 +90,18 @@ node prisma/seed.js
 npm start                     # http://localhost:4000/health
 ```
 
-Seeded accounts (password shown for local demos only):
-
-| role | email | password |
-|---|---|---|
-| ADMIN | admin@dollar.local | Admin@12345 |
-| WAREHOUSE | warehouse@dollar.local | Warehouse@12345 |
-| COLLECTOR | collector@dollar.local | Collector@12345 |
-| ACCOUNTANT | accountant@dollar.local | Accountant@12345 |
-| BUYER | buyer@dollar.local | Buyer@12345 |
+The seed creates accounts with usernames `admin`, `warehouse`, `collector`, `accountant`, and `buyer`. It requires unique passwords supplied through the `SEED_*_PASSWORD` environment variables (at least 20 characters in development, 24 in production). There are no shared default passwords.
 
 ### Tests
 
 ```bash
 cd apps/api
-DATABASE_URL=... JWT_SECRET=... EXPOSE_TOKENS=true BCRYPT_ROUNDS=4 \
-  node --test tests/flow.test.js
+DATABASE_URL=... JWT_SECRET=... BCRYPT_ROUNDS=10 \
+  npm test
 ```
 
 21 scenario tests drive the real HTTP API against a real PostgreSQL database:
-registration/verification, Google Sign-In (stubbed verifier), RBAC denial,
+username/password authentication and legacy auth endpoint removal, RBAC denial,
 server-side pricing, partial preparation, invoice lifecycle, ledger idempotency,
 receipt approval, rejection, overpayment refusal, concurrent approval, and the
 append-only guarantees enforced by database triggers.

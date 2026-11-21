@@ -32,35 +32,33 @@ async function call(path, { method = 'GET', token, body, raw } = {}) {
   return { status: response.status, body: json, raw: text }
 }
 
-async function makeUser({ email, name, role, password = 'Password@123', status = 'ACTIVE', commissionRate = null }) {
+async function makeUser({ username, name, role, password = 'Password@123', status = 'ACTIVE', commissionRate = null }) {
   const passwordHash = await bcrypt.hash(password, 4)
   return prisma.user.create({
-    data: { email, name, role, passwordHash, status, emailVerifiedAt: status === 'ACTIVE' ? new Date() : null, commissionRate }
+    data: { username, name, role, passwordHash, status, commissionRate }
   })
 }
 
-async function login(email, password = 'Password@123') {
-  const res = await call('/api/auth/login', { method: 'POST', body: { email, password } })
-  assert.equal(res.status, 200, `login failed for ${email}: ${res.raw}`)
+async function login(username, password = 'Password@123') {
+  const res = await call('/api/auth/login', { method: 'POST', body: { username, password } })
+  assert.equal(res.status, 200, `login failed for ${username}: ${res.raw}`)
   return res.body.accessToken
 }
 
 test('Dollar B2B platform — end-to-end financial flow', async (t) => {
   await truncateAll()
 
-  const app = createApp({
-    googleVerifier: async () => ({ subject: 'google-sub-001', email: 'google.user@dollar.test', name: 'Google User', picture: null })
-  })
+  const app = createApp()
   server = app.listen(0)
   await new Promise((resolve) => server.once('listening', resolve))
   base = `http://127.0.0.1:${server.address().port}`
 
-  await makeUser({ email: 'admin@dollar.test', name: 'Admin', role: 'ADMIN' })
-  await makeUser({ email: 'warehouse@dollar.test', name: 'Warehouse', role: 'WAREHOUSE' })
-  await makeUser({ email: 'collector@dollar.test', name: 'Collector', role: 'COLLECTOR', commissionRate: '0.0250' })
-  await makeUser({ email: 'accountant@dollar.test', name: 'Accountant', role: 'ACCOUNTANT' })
-  await makeUser({ email: 'buyer@dollar.test', name: 'Buyer One', role: 'BUYER' })
-  await makeUser({ email: 'buyer2@dollar.test', name: 'Buyer Two', role: 'BUYER' })
+  await makeUser({ username: 'admin', name: 'Admin', role: 'ADMIN' })
+  await makeUser({ username: 'warehouse', name: 'Warehouse', role: 'WAREHOUSE' })
+  await makeUser({ username: 'collector', name: 'Collector', role: 'COLLECTOR', commissionRate: '0.0250' })
+  await makeUser({ username: 'accountant', name: 'Accountant', role: 'ACCOUNTANT' })
+  await makeUser({ username: 'buyer', name: 'Buyer One', role: 'BUYER' })
+  await makeUser({ username: 'buyer2', name: 'Buyer Two', role: 'BUYER' })
 
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve))
@@ -73,57 +71,38 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     assert.equal(res.body.database, 'up')
   })
 
-  await t.test('02 registration requires email verification before login', async () => {
-    const registered = await call('/api/auth/register', {
-      method: 'POST',
-      body: { name: 'New Buyer', email: 'new.buyer@dollar.test', password: 'Password@123' }
-    })
-    assert.equal(registered.status, 201, registered.raw)
-    assert.equal(registered.body.user.status, 'PENDING_VERIFICATION')
-    assert.equal(registered.body.user.role, 'BUYER', 'self-registration can only create a BUYER')
-    state.verificationToken = registered.body.verification.token
-    assert.ok(state.verificationToken)
-
-    const blocked = await call('/api/auth/login', { method: 'POST', body: { email: 'new.buyer@dollar.test', password: 'Password@123' } })
-    assert.equal(blocked.status, 403)
-
-    const verified = await call('/api/auth/verify-email', { method: 'POST', body: { token: state.verificationToken } })
-    assert.equal(verified.status, 200)
-    assert.equal(verified.body.user.status, 'ACTIVE')
-
-    const loggedIn = await call('/api/auth/login', { method: 'POST', body: { email: 'new.buyer@dollar.test', password: 'Password@123' } })
-    assert.equal(loggedIn.status, 200)
+  await t.test('02 login uses username/password and legacy auth endpoints are removed', async () => {
+    const loggedIn = await call('/api/auth/login', { method: 'POST', body: { username: 'buyer', password: 'Password@123' } })
+    assert.equal(loggedIn.status, 200, loggedIn.raw)
+    assert.equal(loggedIn.body.user.username, 'buyer')
+    assert.equal(Object.hasOwn(loggedIn.body.user, 'email'), false)
     assert.ok(loggedIn.body.accessToken)
+
+    const legacyEmailLogin = await call('/api/auth/login', { method: 'POST', body: { email: 'buyer@example.test', password: 'Password@123' } })
+    assert.equal(legacyEmailLogin.status, 422)
+    for (const path of ['/api/auth/register', '/api/auth/verify-email', '/api/auth/google', '/api/auth/forgot-password', '/api/auth/reset-password']) {
+      assert.equal((await call(path, { method: 'POST', body: {} })).status, 404, `${path} must not be exposed`)
+    }
   })
 
-  await t.test('03 Google Sign-In verifies the ID token server-side', async () => {
-    const res = await call('/api/auth/google', { method: 'POST', body: { idToken: 'stub-id-token-value-123456' } })
-    assert.equal(res.status, 200, res.raw)
-    assert.equal(res.body.user.email, 'google.user@dollar.test')
-    assert.equal(res.body.user.status, 'ACTIVE')
-    const stored = await prisma.user.findUnique({ where: { email: 'google.user@dollar.test' } })
-    assert.equal(stored.googleSubject, 'google-sub-001')
-  })
-
-  await t.test('04 passwords: forgot, reset and change flows invalidate sessions', async () => {
-    const forgot = await call('/api/auth/forgot-password', { method: 'POST', body: { email: 'buyer2@dollar.test' } })
-    assert.equal(forgot.status, 200)
-    const reset = await call('/api/auth/reset-password', { method: 'POST', body: { token: forgot.body.token, password: 'NewPassword@123' } })
-    assert.equal(reset.status, 200, reset.raw)
-    const relogin = await call('/api/auth/login', { method: 'POST', body: { email: 'buyer2@dollar.test', password: 'NewPassword@123' } })
-    assert.equal(relogin.status, 200)
+  await t.test('03 password change requires current password and revokes sessions', async () => {
+    const token = await login('buyer2')
     const changed = await call('/api/auth/change-password', {
-      method: 'POST', token: relogin.body.accessToken, body: { currentPassword: 'NewPassword@123', newPassword: 'ThirdPassword@123' }
+      method: 'POST', token, body: { currentPassword: 'Password@123', newPassword: 'ThirdPassword@123' }
     })
-    assert.equal(changed.status, 200)
+    assert.equal(changed.status, 200, changed.raw)
+    const oldLogin = await call('/api/auth/login', { method: 'POST', body: { username: 'buyer2', password: 'Password@123' } })
+    assert.equal(oldLogin.status, 401)
+    const newLogin = await call('/api/auth/login', { method: 'POST', body: { username: 'buyer2', password: 'ThirdPassword@123' } })
+    assert.equal(newLogin.status, 200)
   })
 
   await t.test('05 RBAC blocks a buyer from creating an agency', async () => {
-    state.adminToken = await login('admin@dollar.test')
-    state.warehouseToken = await login('warehouse@dollar.test')
-    state.collectorToken = await login('collector@dollar.test')
-    state.accountantToken = await login('accountant@dollar.test')
-    state.buyerToken = await login('buyer@dollar.test')
+    state.adminToken = await login('admin')
+    state.warehouseToken = await login('warehouse')
+    state.collectorToken = await login('collector')
+    state.accountantToken = await login('accountant')
+    state.buyerToken = await login('buyer')
 
     const denied = await call('/api/agencies', {
       method: 'POST', token: state.buyerToken,
@@ -257,7 +236,7 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     assert.equal(approved.body.invoice.status, 'APPROVED')
     assert.equal(approved.body.transaction.amount, '340.0000')
     assert.equal(approved.body.transaction.transactionType, 'DEBIT')
-    assert.equal((await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })).debitBalance.toFixed(4), '340.0000')
+    assert.equal((await prisma.user.findUnique({ where: { username: 'buyer' } })).debitBalance.toFixed(4), '340.0000')
 
     const again = await call(`/api/invoices/${state.invoiceId}/approve`, { method: 'POST', token: state.accountantToken })
     assert.equal(again.status, 409)
@@ -286,7 +265,7 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
   await t.test('14 collector receipt does not touch the balance until approval', async () => {
     const created = await call('/api/receipts', {
       method: 'POST', token: state.collectorToken,
-      body: { buyerId: (await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })).id, amount: '200.0000', currency: 'USD', paymentMethod: 'CASH' }
+      body: { buyerId: (await prisma.user.findUnique({ where: { username: 'buyer' } })).id, amount: '200.0000', currency: 'USD', paymentMethod: 'CASH' }
     })
     assert.equal(created.status, 201, created.raw)
     state.receiptId = created.body.receipt.id
@@ -313,11 +292,11 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     assert.equal(after.body.outstanding.length, 1)
     assert.equal(after.body.outstanding[0].remaining, '140.0000', 'partial payment leaves the remainder open')
     assert.equal((await prisma.invoice.findUnique({ where: { id: state.invoiceId } })).status, 'PARTIALLY_PAID')
-    assert.equal((await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })).debitBalance.toFixed(4), '140.0000')
+    assert.equal((await prisma.user.findUnique({ where: { username: 'buyer' } })).debitBalance.toFixed(4), '140.0000')
   })
 
   await t.test('15 a rejected receipt must not change anything', async () => {
-    const buyer = await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })
+    const buyer = await prisma.user.findUnique({ where: { username: 'buyer' } })
     const created = await call('/api/receipts', {
       method: 'POST', token: state.collectorToken,
       body: { buyerId: buyer.id, amount: '50.0000', currency: 'USD' }
@@ -338,7 +317,7 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
   })
 
   await t.test('16 overpayment is refused without privileged justification', async () => {
-    const buyer = await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })
+    const buyer = await prisma.user.findUnique({ where: { username: 'buyer' } })
     const res = await call('/api/receipts', {
       method: 'POST', token: state.collectorToken,
       body: { buyerId: buyer.id, amount: '999.0000', currency: 'USD' }
@@ -348,7 +327,7 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
   })
 
   await t.test('17 settling the remainder clears the outstanding balance', async () => {
-    const buyer = await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })
+    const buyer = await prisma.user.findUnique({ where: { username: 'buyer' } })
     const created = await call('/api/receipts', {
       method: 'POST', token: state.collectorToken,
       body: { buyerId: buyer.id, amount: '140.0000', currency: 'USD', paymentMethod: 'BANK_TRANSFER' }
@@ -362,17 +341,17 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     assert.equal(statement.body.totals.balance, '0.0000')
     assert.equal(statement.body.outstanding.length, 0)
     assert.equal((await prisma.invoice.findUnique({ where: { id: state.invoiceId } })).status, 'PAID')
-    assert.equal((await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })).debitBalance.toFixed(4), '0.0000')
+    assert.equal((await prisma.user.findUnique({ where: { username: 'buyer' } })).debitBalance.toFixed(4), '0.0000')
   })
 
   await t.test('18 collectors see only their own receipts; buyers cannot read other buyers', async () => {
     const collectorList = await call('/api/receipts', { token: state.collectorToken })
     assert.equal(collectorList.status, 200)
-    const collectorId = (await prisma.user.findUnique({ where: { email: 'collector@dollar.test' } })).id
+    const collectorId = (await prisma.user.findUnique({ where: { username: 'collector' } })).id
     assert.ok(collectorList.body.data.length >= 1)
     assert.ok(collectorList.body.data.every((r) => r.collectorId === collectorId), 'a collector only sees their own receipts')
 
-    const otherBuyer = await prisma.user.findUnique({ where: { email: 'buyer2@dollar.test' } })
+    const otherBuyer = await prisma.user.findUnique({ where: { username: 'buyer2' } })
     const forbidden = await call(`/api/accounting/buyers/${otherBuyer.id}/statement`, { token: state.buyerToken })
     assert.equal(forbidden.status, 403)
   })
@@ -402,7 +381,7 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     const approvedInvoice = await call(`/api/invoices/${invoice.body.invoice.id}/approve`, { method: 'POST', token: state.accountantToken })
     assert.equal(approvedInvoice.status, 200, approvedInvoice.raw)
 
-    const buyer = await prisma.user.findUnique({ where: { email: 'buyer@dollar.test' } })
+    const buyer = await prisma.user.findUnique({ where: { username: 'buyer' } })
     const created = await call('/api/receipts', {
       method: 'POST', token: state.collectorToken,
       body: { buyerId: buyer.id, amount: '10.0000', currency: 'USD' }

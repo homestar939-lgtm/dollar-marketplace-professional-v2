@@ -25,7 +25,10 @@ class B2bException(message: String) : Exception(message)
  * - يمرّر رمز الجلسة تلقائياً.
  * - يترجم {error:{message}} إلى B2bException مفهومة.
  */
-class B2bApi(private val tokenProvider: () -> String? = { null }) {
+class B2bApi(
+    private val tokenProvider: () -> String? = { null },
+    private val apiBaseUrlProvider: () -> String = { BuildConfig.API_BASE_URL }
+) {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -44,7 +47,7 @@ class B2bApi(private val tokenProvider: () -> String? = { null }) {
         }
     }
 
-    private val base: String get() = BuildConfig.API_BASE_URL.trimEnd('/')
+    private val base: String get() = apiBaseUrlProvider().trimEnd('/')
 
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 
@@ -66,32 +69,10 @@ class B2bApi(private val tokenProvider: () -> String? = { null }) {
 
     /* -------------------------------- المصادقة -------------------------------- */
 
-    suspend fun login(email: String, password: String): B2bAuthResponse =
+    suspend fun login(username: String, password: String): B2bAuthResponse =
         client.post("$base/auth/login") {
             contentType(ContentType.Application.Json)
-            setBody(B2bLoginBody(email, password))
-        }.decode()
-
-    suspend fun register(name: String, email: String, password: String): B2bAuthResponse =
-        client.post("$base/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(B2bRegisterBody(name, email, password))
-        }.decode()
-
-    suspend fun google(idToken: String): B2bAuthResponse =
-        client.post("$base/auth/google") {
-            contentType(ContentType.Application.Json)
-            setBody(B2bGoogleBody(idToken))
-        }.decode()
-
-    /**
-     * الدخول التجريبي: يختار الخادم مستخدماً جاهزاً لدور الطلب ويُصدر جلسة حقيقية.
-     * المسار `POST /v3/demo/login` بجسم `{ role }`، ونفس فك الترميز ومعالجة الأخطاء كبقية المصادقة.
-     */
-    suspend fun demoLogin(role: String): B2bAuthResponse =
-        client.post("$base/v3/demo/login") {
-            contentType(ContentType.Application.Json)
-            setBody(mapOf("role" to role))
+            setBody(B2bLoginBody(username, password))
         }.decode()
 
     suspend fun me(): B2bMeResponse = client.get("$base/auth/me") { b2bAuth() }.decode()
