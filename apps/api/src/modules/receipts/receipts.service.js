@@ -27,7 +27,7 @@ export async function findReceipts({ viewer, status, buyerId, collectorId, q, pa
     prisma.receipt.findMany({
       where,
       include: {
-        buyer: { select: { id: true, name: true, email: true } },
+        buyer: { select: { id: true, name: true, username: true } },
         collector: { select: { id: true, name: true } },
         allocations: { include: { invoice: { select: { invoiceNumber: true } } } }
       },
@@ -44,7 +44,7 @@ export async function findReceipt({ receiptId, viewer }) {
   const receipt = await prisma.receipt.findUnique({
     where: { id: receiptId },
     include: {
-      buyer: { select: { id: true, name: true, email: true } },
+      buyer: { select: { id: true, name: true, username: true } },
       collector: { select: { id: true, name: true } },
       allocations: { include: { invoice: { select: { invoiceNumber: true, totalAmount: true } } } }
     }

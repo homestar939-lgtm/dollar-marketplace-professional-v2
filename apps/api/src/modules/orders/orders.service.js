@@ -97,7 +97,7 @@ export async function listOrders({ viewer, status, buyerId, q, page, limit }) {
       where,
       include: {
         items: true,
-        buyer: { select: { id: true, name: true, email: true } },
+        buyer: { select: { id: true, name: true, username: true } },
         invoices: { select: { id: true, invoiceNumber: true, status: true } }
       },
       orderBy: { createdAt: 'desc' },
@@ -115,7 +115,7 @@ export async function getOrder({ orderId, viewer }) {
     where: { id: orderId },
     include: {
       items: true,
-      buyer: { select: { id: true, name: true, email: true } },
+      buyer: { select: { id: true, name: true, username: true } },
       invoices: { include: { items: true } },
       preparedByOrder: true
     }

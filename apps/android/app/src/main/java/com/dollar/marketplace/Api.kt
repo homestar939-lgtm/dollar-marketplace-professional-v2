@@ -101,16 +101,10 @@ class Api(private val tokenProvider: () -> String? = { null }) {
 
     /* ------------------------------ حساب ------------------------------ */
 
-    suspend fun login(email: String, password: String): AuthResult =
+    suspend fun login(username: String, password: String): AuthResult =
         client.post("$base/auth/login") {
             contentType(ContentType.Application.Json)
-            setBody(LoginBody(email, password))
-        }.decode()
-
-    suspend fun register(email: String, password: String, name: String, role: String): AuthResult =
-        client.post("$base/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterBody(email, password, name, role))
+            setBody(LoginBody(username, password))
         }.decode()
 
     /* ------------------------------- سلة ------------------------------- */

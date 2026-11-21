@@ -22,8 +22,12 @@ jobs:
     env:
       DATABASE_URL: postgresql://dollar:dollar@localhost:5432/dollar?schema=public
       JWT_SECRET: ci-secret-value-that-is-long-enough
-      EXPOSE_TOKENS: "true"
-      BCRYPT_ROUNDS: "4"
+      BCRYPT_ROUNDS: "10"
+      SEED_ADMIN_PASSWORD: "ci-only-admin-password-not-production-2026!"
+      SEED_WAREHOUSE_PASSWORD: "ci-only-warehouse-password-not-production-2026!"
+      SEED_COLLECTOR_PASSWORD: "ci-only-collector-password-not-production-2026!"
+      SEED_ACCOUNTANT_PASSWORD: "ci-only-accountant-password-not-production-2026!"
+      SEED_BUYER_PASSWORD: "ci-only-buyer-password-not-production-2026!"
       NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +48,7 @@ jobs:
       - name: Apply migrations
         working-directory: apps/api
         run: npx prisma migrate deploy
-      - name: Seed demo data
+      - name: Seed CI fixtures
         working-directory: apps/api
         run: node prisma/seed.js
       - name: Run end-to-end tests

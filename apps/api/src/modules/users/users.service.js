@@ -9,7 +9,7 @@ export async function listUsers({ role, status, q, page, limit }) {
   const where = {
     ...(role ? { role } : {}),
     ...(status ? { status } : {}),
-    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }] } : {})
+    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { username: { contains: q, mode: 'insensitive' } }] } : {})
   }
   const [items, total] = await Promise.all([
     prisma.user.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
@@ -19,8 +19,8 @@ export async function listUsers({ role, status, q, page, limit }) {
 }
 
 export async function createStaff({ data, actor, req }) {
-  const existing = await prisma.user.findUnique({ where: { email: data.email } })
-  if (existing) throw conflict('An account with this email already exists')
+  const existing = await prisma.user.findUnique({ where: { username: data.username } })
+  if (existing) throw conflict('اسم المستخدم مستخدم بالفعل')
   if (data.commissionRate != null && data.role !== 'COLLECTOR') {
     throw unprocessable('Only collectors carry a commission rate')
   }
@@ -29,17 +29,16 @@ export async function createStaff({ data, actor, req }) {
   const user = await prisma.user.create({
     data: {
       name: data.name,
-      email: data.email,
+      username: data.username,
       passwordHash,
       role: data.role,
       status: 'ACTIVE',
-      emailVerifiedAt: new Date(),
       phone: data.phone ?? null,
       commissionRate: data.commissionRate != null ? data.commissionRate : null,
       agencyId: data.agencyId ?? null
     }
   })
-  await recordAudit(prisma, { actorId: actor.id, action: 'user.create', entityType: 'User', entityId: user.id, after: { email: user.email, role: user.role }, req })
+  await recordAudit(prisma, { actorId: actor.id, action: 'user.create', entityType: 'User', entityId: user.id, after: { username: user.username, role: user.role }, req })
   return publicUser(user)
 }
 

@@ -11,12 +11,11 @@ import kotlinx.serialization.Serializable
 data class B2bUser(
     val id: String = "",
     val name: String = "",
-    val email: String = "",
+    val username: String = "",
     val role: String = "",
     val status: String = "",
     val phone: String? = null,
-    val commissionRate: String? = null,
-    val emailVerifiedAt: String? = null
+    val commissionRate: String? = null
 )
 
 @Serializable
@@ -30,13 +29,7 @@ data class B2bAuthResponse(
 data class B2bMeResponse(val user: B2bUser = B2bUser())
 
 @Serializable
-data class B2bLoginBody(val email: String, val password: String)
-
-@Serializable
-data class B2bRegisterBody(val name: String, val email: String, val password: String)
-
-@Serializable
-data class B2bGoogleBody(val idToken: String)
+data class B2bLoginBody(val username: String, val password: String)
 
 @Serializable
 data class B2bMeta(val page: Int = 1, val limit: Int = 20, val total: Int = 0, val pages: Int = 1)
@@ -147,7 +140,7 @@ data class B2bReceiptPage(val data: List<B2bReceipt> = emptyList(), val meta: B2
 data class B2bBuyerRow(
     val id: String = "",
     val name: String = "",
-    val email: String = "",
+    val username: String = "",
     val phone: String? = null,
     val debit: String = "0",
     val credit: String = "0",
@@ -274,7 +267,7 @@ data class B2bAgencyEnvelope(val agency: B2bAgency = B2bAgency())
 @Serializable
 data class B2bCreateUserBody(
     val name: String,
-    val email: String,
+    val username: String,
     val password: String,
     val role: String,
     val commissionRate: Double? = null

@@ -78,7 +78,7 @@ export default function Collector() {
               <tbody>
                 {buyers.map((buyer) => (
                   <tr key={buyer.id}>
-                    <td>{buyer.name}<br /><small className="empty">{buyer.email}</small></td>
+                    <td>{buyer.name}<br /><small className="empty">{buyer.username}</small></td>
                     <td className="mono">{buyer.debit}</td>
                     <td className="mono">{buyer.credit}</td>
                     <td className="mono">{buyer.outstanding}</td>

@@ -8,7 +8,7 @@ export default function Admin() {
   const [users, setUsers] = useState<User[]>([])
   const [agencies, setAgencies] = useState<Agency[]>([])
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null)
-  const [staff, setStaff] = useState({ name: '', email: '', password: '', role: 'WAREHOUSE', commissionRate: '' })
+  const [staff, setStaff] = useState({ name: '', username: '', password: '', role: 'WAREHOUSE', commissionRate: '' })
   const [agency, setAgency] = useState({ name: '', slug: '' })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -41,12 +41,12 @@ export default function Admin() {
     try {
       await api.createStaff({
         name: staff.name,
-        email: staff.email,
+        username: staff.username,
         password: staff.password,
         role: staff.role,
         ...(staff.role === 'COLLECTOR' && staff.commissionRate ? { commissionRate: Number(staff.commissionRate) } : {})
       })
-      setStaff({ name: '', email: '', password: '', role: 'WAREHOUSE', commissionRate: '' })
+      setStaff({ name: '', username: '', password: '', role: 'WAREHOUSE', commissionRate: '' })
       await load()
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'تعذّر إنشاء الحساب')
@@ -77,11 +77,11 @@ export default function Admin() {
       <div className="grid-2">
         <Card title="إنشاء حساب موظف">
           <Field label="الاسم"><input value={staff.name} onChange={(e) => setStaff({ ...staff, name: e.target.value })} /></Field>
-          <Field label="البريد"><input value={staff.email} onChange={(e) => setStaff({ ...staff, email: e.target.value })} /></Field>
-          <Field label="كلمة المرور"><input type="password" value={staff.password} onChange={(e) => setStaff({ ...staff, password: e.target.value })} /></Field>
+          <Field label="اسم المستخدم"><input value={staff.username} onChange={(e) => setStaff({ ...staff, username: e.target.value })} /></Field>
+          <Field label="كلمة المرور (12 حرفاً على الأقل)"><input type="password" value={staff.password} onChange={(e) => setStaff({ ...staff, password: e.target.value })} /></Field>
           <Field label="الدور">
             <select value={staff.role} onChange={(e) => setStaff({ ...staff, role: e.target.value })}>
-              {['WAREHOUSE', 'COLLECTOR', 'ACCOUNTANT', 'SUPPORT'].map((role) => (
+              {['ADMIN', 'WAREHOUSE', 'COLLECTOR', 'ACCOUNTANT', 'BUYER'].map((role) => (
                 <option key={role} value={role}>{role}</option>
               ))}
             </select>
@@ -91,7 +91,7 @@ export default function Admin() {
               <input value={staff.commissionRate} onChange={(e) => setStaff({ ...staff, commissionRate: e.target.value })} />
             </Field>
           )}
-          <Button onClick={() => void createStaff()} disabled={busy || !staff.name || !staff.email || !staff.password}>إنشاء</Button>
+          <Button onClick={() => void createStaff()} disabled={busy || !staff.name || !staff.username || staff.password.length < 12}>إنشاء</Button>
         </Card>
 
         <Card title="إنشاء وكالة">
@@ -112,12 +112,12 @@ export default function Admin() {
           <Empty text="لا يوجد مستخدمون." />
         ) : (
           <table>
-            <thead><tr><th>الاسم</th><th>البريد</th><th>الدور</th><th>الحالة</th></tr></thead>
+            <thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الدور</th><th>الحالة</th></tr></thead>
             <tbody>
               {users.map((user) => (
                 <tr key={user.id}>
                   <td>{user.name}</td>
-                  <td>{user.email}</td>
+                  <td>{user.username}</td>
                   <td>{user.role}</td>
                   <td><Badge status={user.status} /></td>
                 </tr>

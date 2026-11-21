@@ -8,9 +8,7 @@ const baseline = {
   NODE_ENV: 'production',
   DATABASE_URL: 'postgresql://release:secret@localhost:5432/dollar',
   JWT_SECRET: 'a'.repeat(48),
-  DEMO_MODE: 'false',
-  EXPOSE_TOKENS: 'false',
-  CORS_ORIGINS: 'https://market.example.com'
+  CORS_ORIGINS: 'http://192.168.1.50:5173'
 }
 
 function loadConfig(overrides = {}) {
@@ -21,17 +19,17 @@ function loadConfig(overrides = {}) {
   })
 }
 
-test('accepts an explicitly safe production configuration', () => {
+test('accepts explicit production LAN HTTP origins and strong secrets', () => {
   const result = loadConfig()
   assert.equal(result.status, 0, result.stderr)
 })
 
-test('refuses production demo mode, token exposure, wildcard or insecure CORS, and weak JWT secrets', () => {
+test('rejects wildcard, loopback, malformed origins, and weak JWT secrets', () => {
   const invalidConfigurations = [
-    [{ DEMO_MODE: 'true' }, 'DEMO_MODE must be false'],
-    [{ EXPOSE_TOKENS: 'true' }, 'EXPOSE_TOKENS must be false'],
-    [{ CORS_ORIGINS: '*' }, 'CORS_ORIGINS must list explicit HTTPS origins'],
-    [{ CORS_ORIGINS: 'http://market.example.com' }, 'CORS_ORIGINS entries must be exact HTTPS origins'],
+    [{ CORS_ORIGINS: '*' }, 'CORS_ORIGINS must list explicit local-network origins'],
+    [{ CORS_ORIGINS: 'http://localhost:5173' }, 'CORS_ORIGINS entries must be exact LAN HTTP(S) origins'],
+    [{ CORS_ORIGINS: 'http://127.0.0.1:5173' }, 'CORS_ORIGINS entries must be exact LAN HTTP(S) origins'],
+    [{ CORS_ORIGINS: 'http://192.168.1.50:5173/app' }, 'CORS_ORIGINS entries must be exact LAN HTTP(S) origins'],
     [{ JWT_SECRET: 'too-short-secret' }, 'JWT_SECRET must be at least 32 characters']
   ]
 

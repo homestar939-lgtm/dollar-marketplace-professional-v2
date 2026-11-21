@@ -117,14 +117,14 @@ export async function financialOverview({ currency }) {
 }
 
 export async function outstandingReport({ currency }) {
-  const buyers = await prisma.user.findMany({ where: { role: 'BUYER' }, select: { id: true, name: true, email: true } })
+  const buyers = await prisma.user.findMany({ where: { role: 'BUYER' }, select: { id: true, name: true, username: true } })
   const rows = []
   for (const buyer of buyers) {
     const invoices = await outstandingInvoices(prisma, { buyerId: buyer.id, currency })
     const total = invoices.reduce((acc, i) => add(acc, i.remaining), ZERO)
     if (money(total).gt(0)) {
       rows.push({
-        buyerId: buyer.id, buyerName: buyer.name, email: buyer.email,
+        buyerId: buyer.id, buyerName: buyer.name, username: buyer.username,
         openInvoices: invoices.filter((i) => i.remaining.gt(0)).length,
         outstanding: str(total)
       })

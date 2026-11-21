@@ -28,7 +28,6 @@ const fieldStyle: CSSProperties = {
 export default function AddUser({ onBack, onCreated }: { onBack: () => void; onCreated?: () => void }) {
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('BUYER')
   const [busy, setBusy] = useState(false)
@@ -39,17 +38,11 @@ export default function AddUser({ onBack, onCreated }: { onBack: () => void; onC
     event.preventDefault()
     setError(null)
     setSuccess(false)
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('أدخل عنوان بريد إلكتروني صحيحاً أو اترك الحقل فارغاً.')
-      return
-    }
-
     setBusy(true)
     try {
       await api.createUser({
         name: name.trim(),
         username: username.trim(),
-        ...(email.trim() ? { email: email.trim() } : {}),
         password,
         role
       })
@@ -81,11 +74,8 @@ export default function AddUser({ onBack, onCreated }: { onBack: () => void; onC
           <label style={{ display: 'grid', gap: 8 }}>اسم المستخدم
             <input style={fieldStyle} value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
           </label>
-          <label style={{ display: 'grid', gap: 8 }}>البريد الإلكتروني <span className="v3-muted" style={{ display: 'inline', fontSize: 12 }}>(اختياري)</span>
-            <input style={fieldStyle} type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
-          </label>
-          <label style={{ display: 'grid', gap: 8 }}>كلمة المرور
-            <input style={fieldStyle} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
+          <label style={{ display: 'grid', gap: 8 }}>كلمة المرور (12 حرفاً على الأقل)
+            <input style={fieldStyle} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={12} required />
           </label>
           <label style={{ display: 'grid', gap: 8 }}>الدور
             <select style={fieldStyle} value={role} onChange={(event) => setRole(event.target.value as Role)}>
