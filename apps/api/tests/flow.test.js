@@ -79,7 +79,7 @@ test('Dollar B2B platform — end-to-end financial flow', async (t) => {
     assert.ok(loggedIn.body.accessToken)
 
     const legacyEmailLogin = await call('/api/auth/login', { method: 'POST', body: { email: 'buyer@example.test', password: 'Password@123' } })
-    assert.equal(legacyEmailLogin.status, 400)
+    assert.equal(legacyEmailLogin.status, 422)
     for (const path of ['/api/auth/register', '/api/auth/verify-email', '/api/auth/google', '/api/auth/forgot-password', '/api/auth/reset-password']) {
       assert.equal((await call(path, { method: 'POST', body: {} })).status, 404, `${path} must not be exposed`)
     }
